@@ -3,8 +3,9 @@ import hashlib
 import hmac
 import importlib
 import json
-import secrets
 import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 from types import ModuleType
 from typing import TypedDict, cast
@@ -24,45 +25,78 @@ class AccessTokenClaims(TypedDict):
 
 class AuthService:
     def __init__(self) -> None:
-        self._users_by_email: dict[str, AuthUser] = {}
-        self._users_by_id: dict[str, AuthUser] = {}
         self._secret_key = settings.auth_secret_key
-        self._salt = settings.auth_salt
         self._token_ttl_seconds = settings.auth_token_ttl_seconds
 
     def register_user(self, payload: RegisterRequest) -> AuthUser:
         email = payload.email.lower()
-
-        if email in self._users_by_email:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="User already exists.",
-            )
-
-        user = AuthUser(
+        firebase_uid = self._register_user_in_firebase(
             email=email,
-            hashed_password=self._hash_password(payload.password),
+            password=payload.password,
             full_name=payload.full_name,
         )
-        self._users_by_email[email] = user
-        self._users_by_id[user.id] = user
-        return user
+        return self._get_firebase_user_by_uid(firebase_uid)
 
     def authenticate_email_password(self, email: str, password: str) -> AuthUser:
-        user = self._users_by_email.get(email.lower())
-        if user is None or not self._verify_password(password, user.hashed_password):
+        api_key = settings.firebase_web_api_key
+        if not api_key:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="FIREBASE_WEB_API_KEY is required for /auth/login.",
+            )
+
+        endpoint = (
+            "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword"
+            f"?key={api_key}"
+        )
+        request_body = json.dumps(
+            {
+                "email": email.lower(),
+                "password": password,
+                "returnSecureToken": True,
+            }
+        ).encode("utf-8")
+        request = urllib.request.Request(
+            endpoint,
+            data=request_body,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+
+        try:
+            with urllib.request.urlopen(request, timeout=10) as response:
+                response_payload = json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            error_detail = "Invalid email or password."
+            try:
+                error_payload = json.loads(exc.read().decode("utf-8"))
+                firebase_message = (
+                    error_payload.get("error", {}).get("message")
+                    if isinstance(error_payload, dict)
+                    else None
+                )
+                if isinstance(firebase_message, str) and firebase_message:
+                    error_detail = f"Firebase sign-in failed: {firebase_message}"
+            except Exception:
+                pass
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid email or password.",
-            )
-
-        if not user.is_active:
+                detail=error_detail,
+            ) from exc
+        except urllib.error.URLError as exc:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="User is inactive.",
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Failed to reach Firebase sign-in endpoint: {exc}",
+            ) from exc
+
+        firebase_uid = response_payload.get("localId")
+        if not isinstance(firebase_uid, str) or not firebase_uid:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Firebase sign-in response did not include a valid user id.",
             )
 
-        return user
+        return self._get_firebase_user_by_uid(firebase_uid)
 
     def authenticate_firebase_id_token(self, id_token: str) -> AuthUser:
         firebase_admin, firebase_auth = self._load_firebase_modules()
@@ -94,18 +128,51 @@ class AuthService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Firebase token does not include an email claim.",
             )
-
-        user = self._users_by_email.get(email)
-        if user is None:
-            user = AuthUser(
-                email=email,
-                hashed_password=self._hash_password(secrets.token_urlsafe(32)),
-                full_name=decoded.get("name"),
+        firebase_uid = decoded.get("uid") or decoded.get("sub")
+        if not isinstance(firebase_uid, str) or not firebase_uid:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Firebase token does not include a valid uid claim.",
             )
-            self._users_by_email[email] = user
-            self._users_by_id[user.id] = user
 
-        return user
+        return self._get_firebase_user_by_uid(firebase_uid)
+
+    def _register_user_in_firebase(self, email: str, password: str, full_name: str | None) -> str:
+        firebase_admin, firebase_auth = self._load_firebase_modules()
+        if firebase_admin is None or firebase_auth is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="firebase-admin is not installed.",
+            )
+
+        self._ensure_firebase_initialized(firebase_admin)
+
+        try:
+            created_user = firebase_auth.create_user(
+                email=email,
+                password=password,
+                display_name=full_name,
+            )
+        except Exception as exc:  # noqa: BLE001 - map SDK errors into API errors
+            if exc.__class__.__name__ in {"EmailAlreadyExistsError", "AlreadyExistsError"}:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="User already exists in Firebase.",
+                ) from exc
+
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to create Firebase user: {exc}",
+            ) from exc
+
+        uid = getattr(created_user, "uid", None)
+        if not isinstance(uid, str) or not uid:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Firebase returned an invalid user uid.",
+            )
+
+        return uid
 
     def create_access_token(self, user: AuthUser) -> TokenResponse:
         expires_at = int(time.time()) + self._token_ttl_seconds
@@ -125,28 +192,13 @@ class AuthService:
             email=str(payload["email"]),
             exp=int(payload["exp"]),
         )
-
-        user = self._users_by_id.get(token_payload.sub)
-        if user is None:
+        user = self._get_firebase_user_by_uid(token_payload.sub)
+        if user.email.lower() != token_payload.email.lower():
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found for token subject.",
+                detail="Token claims do not match Firebase user data.",
             )
-
         return user
-
-    def _hash_password(self, password: str) -> str:
-        digest = hashlib.pbkdf2_hmac(
-            "sha256",
-            password.encode("utf-8"),
-            self._salt.encode("utf-8"),
-            120_000,
-        )
-        return base64.urlsafe_b64encode(digest).decode("utf-8")
-
-    def _verify_password(self, raw_password: str, hashed_password: str) -> bool:
-        expected_hash = self._hash_password(raw_password)
-        return hmac.compare_digest(expected_hash, hashed_password)
 
     def _encode_token(self, payload: AccessTokenClaims) -> str:
         payload_bytes = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
@@ -220,6 +272,51 @@ class AuthService:
             return firebase_admin, firebase_auth
         except ImportError:
             return None, None
+
+    def _get_firebase_user_by_uid(self, uid: str) -> AuthUser:
+        firebase_admin, firebase_auth = self._load_firebase_modules()
+        if firebase_admin is None or firebase_auth is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="firebase-admin is not installed.",
+            )
+
+        self._ensure_firebase_initialized(firebase_admin)
+
+        try:
+            firebase_user = firebase_auth.get_user(uid)
+        except Exception as exc:  # noqa: BLE001 - keep Firebase error text for debugging
+            if exc.__class__.__name__ in {"UserNotFoundError", "NotFoundError"}:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Firebase user not found.",
+                ) from exc
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to load Firebase user: {exc}",
+            ) from exc
+
+        user_email = getattr(firebase_user, "email", None)
+        if not isinstance(user_email, str) or not user_email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Firebase user does not contain a valid email.",
+            )
+
+        is_disabled = bool(getattr(firebase_user, "disabled", False))
+        if is_disabled:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User is inactive.",
+            )
+
+        return AuthUser(
+            id=str(getattr(firebase_user, "uid", uid)),
+            email=user_email.lower(),
+            hashed_password="",
+            is_active=True,
+            full_name=getattr(firebase_user, "display_name", None),
+        )
 
     def _ensure_firebase_initialized(self, firebase_admin: ModuleType) -> None:
         firebase_apps = getattr(firebase_admin, "_apps", None)

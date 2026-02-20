@@ -50,6 +50,7 @@ class Settings:
     auth_token_ttl_seconds: int
     firebase_credentials_path: str | None
     firebase_project_id: str | None
+    firebase_web_api_key: str | None
 
 
 def load_settings() -> Settings:
@@ -65,6 +66,7 @@ def load_settings() -> Settings:
         auth_token_ttl_seconds=_parse_int(os.getenv("AUTH_TOKEN_TTL_SECONDS"), 3600),
         firebase_credentials_path=os.getenv("FIREBASE_CREDENTIALS_PATH"),
         firebase_project_id=os.getenv("FIREBASE_PROJECT_ID"),
+        firebase_web_api_key=os.getenv("FIREBASE_WEB_API_KEY"),
     )
 
 

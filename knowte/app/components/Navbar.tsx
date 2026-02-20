@@ -34,12 +34,16 @@ export default function Navbar() {
         </Stack>
 
         <Stack direction="row" spacing={1.5} alignItems="center">
-          <Button variant="outlined" color="primary" sx={{ display: { xs: "none", md: "inline-flex" } }}>
-            Sign in
-          </Button>
-          <Button variant="contained" color="primary" sx={{ display: { xs: "none", md: "inline-flex" } }}>
-            Get started
-          </Button>
+          <Link href="/signin">
+            <Button variant="outlined" color="primary" sx={{ display: { xs: "none", md: "inline-flex" } }}>
+              Sign in
+            </Button>
+          </Link>
+          <Link href="/register">
+            <Button variant="contained" color="primary" sx={{ display: { xs: "none", md: "inline-flex" } }}>
+              Get started
+            </Button>
+          </Link>
           <IconButton onClick={() => setMobileOpen(true)} sx={{ display: { md: "none" } }}>
             <MenuIcon />
           </IconButton>

@@ -13,7 +13,7 @@ from schemas.auhtschema import (
 from services.authservice import AuthService, get_auth_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
 
 
 @router.post("/register", response_model=AuthResponse, status_code=201)
