@@ -20,9 +20,9 @@ const members: Member[] = [
 ];
 
 const statusColor: Record<string, string> = {
-  online: "#23a55a",
-  idle: "#f0b232",
-  offline: "#80848e",
+  online: "#16a34a",
+  idle: "#ca8a04",
+  offline: "#94a3b8",
 };
 
 export default function MembersSidebar() {
@@ -41,14 +41,15 @@ export default function MembersSidebar() {
     <Box
       sx={{
         width: 240,
-        bgcolor: "#2b2d31",
+        bgcolor: "#f8fafc",
         height: "100%",
         flexShrink: 0,
         overflowY: "auto",
-        borderLeft: "1px solid #1e1f22",
+        borderLeft: 1,
+        borderColor: "divider",
         pt: 2,
         "&::-webkit-scrollbar": { width: 4 },
-        "&::-webkit-scrollbar-thumb": { bgcolor: "#1e1f22", borderRadius: 2 },
+        "&::-webkit-scrollbar-thumb": { bgcolor: "#cbd5e1", borderRadius: 2 },
       }}
     >
       {online.length > 0 && (
@@ -58,7 +59,7 @@ export default function MembersSidebar() {
               px: 2,
               fontSize: 11,
               fontWeight: 700,
-              color: "#949ba4",
+              color: "text.secondary",
               textTransform: "uppercase",
               letterSpacing: "0.04em",
               mb: 0.5,
@@ -75,7 +76,7 @@ export default function MembersSidebar() {
                   px: 2,
                   borderRadius: 1,
                   mx: 1,
-                  "&:hover": { bgcolor: "#35373c" },
+                  "&:hover": { bgcolor: "#f1f5f9" },
                 }}
               >
                 <ListItemAvatar sx={{ minWidth: 40 }}>
@@ -85,7 +86,7 @@ export default function MembersSidebar() {
                         width: 32,
                         height: 32,
                         fontSize: 14,
-                        bgcolor: m.bot ? "#5865f2" : "#747f8d",
+                        bgcolor: m.bot ? "primary.main" : "#94a3b8",
                       }}
                     >
                       {m.name.charAt(0)}
@@ -99,7 +100,7 @@ export default function MembersSidebar() {
                         height: 12,
                         borderRadius: "50%",
                         bgcolor: statusColor[m.status],
-                        border: "3px solid #2b2d31",
+                        border: "3px solid #f8fafc",
                       }}
                     />
                   </Box>
@@ -107,13 +108,13 @@ export default function MembersSidebar() {
                 <ListItemText
                   primary={
                     <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                      <Typography sx={{ fontSize: 14, fontWeight: 500, color: m.bot ? "#5865f2" : "#949ba4" }}>
+                      <Typography sx={{ fontSize: 14, fontWeight: 500, color: m.bot ? "primary.main" : "text.secondary" }}>
                         {m.name}
                       </Typography>
                       {m.bot && (
                         <Box
                           sx={{
-                            bgcolor: "#5865f2",
+                            bgcolor: "primary.main",
                             color: "#fff",
                             fontSize: 9,
                             fontWeight: 700,
@@ -141,7 +142,7 @@ export default function MembersSidebar() {
               px: 2,
               fontSize: 11,
               fontWeight: 700,
-              color: "#949ba4",
+              color: "text.secondary",
               textTransform: "uppercase",
               letterSpacing: "0.04em",
               mt: 2,
@@ -157,13 +158,13 @@ export default function MembersSidebar() {
                 sx={{ py: 0.5, px: 2, borderRadius: 1, mx: 1, opacity: 0.5 }}
               >
                 <ListItemAvatar sx={{ minWidth: 40 }}>
-                  <Avatar sx={{ width: 32, height: 32, fontSize: 14, bgcolor: "#747f8d" }}>
+                  <Avatar sx={{ width: 32, height: 32, fontSize: 14, bgcolor: "#94a3b8" }}>
                     {m.name.charAt(0)}
                   </Avatar>
                 </ListItemAvatar>
                 <ListItemText
                   primary={m.name}
-                  primaryTypographyProps={{ fontSize: 14, color: "#949ba4" }}
+                  primaryTypographyProps={{ fontSize: 14, color: "text.secondary" }}
                 />
               </ListItemButton>
             ))}

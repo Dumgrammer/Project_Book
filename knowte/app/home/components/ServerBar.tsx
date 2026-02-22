@@ -5,10 +5,10 @@ import Tooltip from "@mui/material/Tooltip";
 import Avatar from "@mui/material/Avatar";
 import Divider from "@mui/material/Divider";
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
-import ExploreRoundedIcon from "@mui/icons-material/ExploreRounded";
+import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
+import FolderRoundedIcon from "@mui/icons-material/FolderRounded";
+import BarChartRoundedIcon from "@mui/icons-material/BarChartRounded";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
-import SchoolRoundedIcon from "@mui/icons-material/SchoolRounded";
-import ScienceRoundedIcon from "@mui/icons-material/ScienceRounded";
 
 const WIDTH = 72;
 
@@ -19,30 +19,16 @@ interface ServerIconProps {
   color?: string;
 }
 
-function ServerIcon({ label, children, active, color = "#5865f2" }: ServerIconProps) {
+function ServerIcon({ label, children, active, color = "#4f46e5" }: ServerIconProps) {
   return (
     <Tooltip title={label} placement="right" arrow>
       <Box sx={{ position: "relative", display: "flex", justifyContent: "center", mb: 1 }}>
-        {active && (
-          <Box
-            sx={{
-              position: "absolute",
-              left: 0,
-              top: "50%",
-              transform: "translateY(-50%)",
-              width: 4,
-              height: 40,
-              borderRadius: "0 4px 4px 0",
-              bgcolor: "#fff",
-            }}
-          />
-        )}
         <Avatar
           variant="rounded"
           sx={{
             width: 48,
             height: 48,
-            bgcolor: active ? color : "#313338",
+            bgcolor: active ? color : "#e2e8f0",
             borderRadius: active ? "16px" : "24px",
             transition: "border-radius 0.2s, background-color 0.2s",
             cursor: "pointer",
@@ -69,7 +55,9 @@ export default function ServerBar() {
         top: 0,
         width: WIDTH,
         height: "100vh",
-        bgcolor: "#1e1f22",
+        bgcolor: "#f8fafc",
+        borderRight: 1,
+        borderColor: "divider",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -80,26 +68,26 @@ export default function ServerBar() {
         "&::-webkit-scrollbar": { width: 0 },
       }}
     >
-      <ServerIcon label="Home" active color="#5865f2">
+      <ServerIcon label="Home" active color="#4f46e5">
         <HomeRoundedIcon sx={{ color: "#fff", fontSize: 28 }} />
       </ServerIcon>
 
-      <Divider sx={{ width: 32, borderColor: "#35363c", my: 0.5 }} />
-
-      <ServerIcon label="Biology 101" color="#57f287">
-        <ScienceRoundedIcon sx={{ color: "#57f287", fontSize: 24 }} />
-      </ServerIcon>
-      <ServerIcon label="Math 201" color="#fee75c">
-        <SchoolRoundedIcon sx={{ color: "#fee75c", fontSize: 24 }} />
+      <ServerIcon label="Rooms" color="#0891b2">
+        <GroupsRoundedIcon sx={{ color: "#0891b2", fontSize: 24 }} />
       </ServerIcon>
 
-      <Divider sx={{ width: 32, borderColor: "#35363c", my: 0.5 }} />
-
-      <ServerIcon label="Add a Subject" color="#57f287">
-        <AddRoundedIcon sx={{ color: "#57f287", fontSize: 28 }} />
+      <ServerIcon label="Resources" color="#d97706">
+        <FolderRoundedIcon sx={{ color: "#d97706", fontSize: 24 }} />
       </ServerIcon>
-      <ServerIcon label="Explore Public Notes" color="#57f287">
-        <ExploreRoundedIcon sx={{ color: "#57f287", fontSize: 24 }} />
+
+      <ServerIcon label="Usage" color="#7c3aed">
+        <BarChartRoundedIcon sx={{ color: "#7c3aed", fontSize: 24 }} />
+      </ServerIcon>
+
+      <Divider sx={{ width: 32, borderColor: "divider", my: 0.5 }} />
+
+      <ServerIcon label="Add" color="#16a34a">
+        <AddRoundedIcon sx={{ color: "#16a34a", fontSize: 28 }} />
       </ServerIcon>
     </Box>
   );

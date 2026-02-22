@@ -19,7 +19,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           flexGrow: 1,
           display: "flex",
           flexDirection: "column",
-          bgcolor: "#313338",
+          bgcolor: "background.default",
           ml: `${SERVERBAR_WIDTH + SIDEBAR_WIDTH}px`,
           height: "100vh",
         }}

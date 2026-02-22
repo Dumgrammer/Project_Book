@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { api } from "../lib/api";
 import { authResponseSchema, userResponseSchema } from "../schemas/authschema";
+import { getCookie, setCookie, removeCookie } from "../lib/cookies";
 import type {
   AuthResponse,
   LoginInput,
@@ -13,13 +14,13 @@ import type {
 } from "../models/authmodel";
 
 function persistToken(token: AuthResponse["token"]) {
-  localStorage.setItem("access_token", token.access_token);
-  localStorage.setItem("token_type", token.token_type);
+  setCookie("access_token", token.access_token, token.expires_in);
+  setCookie("token_type", token.token_type, token.expires_in);
 }
 
 function clearToken() {
-  localStorage.removeItem("access_token");
-  localStorage.removeItem("token_type");
+  removeCookie("access_token");
+  removeCookie("token_type");
 }
 
 export function useLogin() {
@@ -34,7 +35,7 @@ export function useLogin() {
     onSuccess: (data: AuthResponse) => {
       persistToken(data.token);
       queryClient.setQueryData(["auth", "me"], data.user);
-      router.push("/dashboard");
+      router.push("/home");
     },
   });
 }
@@ -51,7 +52,7 @@ export function useRegister() {
     onSuccess: (data: AuthResponse) => {
       persistToken(data.token);
       queryClient.setQueryData(["auth", "me"], data.user);
-      router.push("/dashboard");
+      router.push("/home");
     },
   });
 }
@@ -68,7 +69,7 @@ export function useOAuthFirebase() {
     onSuccess: (data: AuthResponse) => {
       persistToken(data.token);
       queryClient.setQueryData(["auth", "me"], data.user);
-      router.push("/dashboard");
+      router.push("/home");
     },
   });
 }
@@ -80,7 +81,7 @@ export function useCurrentUser() {
       const { data } = await api.get("/auth/me");
       return userResponseSchema.parse(data);
     },
-    enabled: typeof window !== "undefined" && !!localStorage.getItem("access_token"),
+    enabled: typeof window !== "undefined" && !!getCookie("access_token"),
     retry: false,
   });
 }

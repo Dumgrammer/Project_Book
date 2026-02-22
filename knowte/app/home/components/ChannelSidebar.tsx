@@ -84,7 +84,7 @@ function ChannelGroupSection({
         <ExpandMoreRoundedIcon
           sx={{
             fontSize: 12,
-            color: "#949ba4",
+            color: "text.secondary",
             mr: 0.5,
             transform: open ? "rotate(0deg)" : "rotate(-90deg)",
             transition: "transform 0.15s",
@@ -93,7 +93,7 @@ function ChannelGroupSection({
         <Typography
           variant="caption"
           sx={{
-            color: "#949ba4",
+            color: "text.secondary",
             fontWeight: 700,
             fontSize: 11,
             textTransform: "uppercase",
@@ -115,15 +115,15 @@ function ChannelGroupSection({
               py: 0.5,
               borderRadius: 1,
               mb: 0.25,
-              "&.Mui-selected": { bgcolor: "#404249", "&:hover": { bgcolor: "#404249" } },
-              "&:hover": { bgcolor: "#35373c" },
+              "&.Mui-selected": { bgcolor: "#e0e7ff", "&:hover": { bgcolor: "#e0e7ff" } },
+              "&:hover": { bgcolor: "#f1f5f9" },
             }}
           >
             <ListItemIcon sx={{ minWidth: 28 }}>
               {ch.kind === "voice" ? (
-                <VolumeUpRoundedIcon sx={{ fontSize: 20, color: "#949ba4" }} />
+                <VolumeUpRoundedIcon sx={{ fontSize: 20, color: "text.secondary" }} />
               ) : (
-                <TagRoundedIcon sx={{ fontSize: 20, color: "#949ba4" }} />
+                <TagRoundedIcon sx={{ fontSize: 20, color: "text.secondary" }} />
               )}
             </ListItemIcon>
             <ListItemText
@@ -131,7 +131,7 @@ function ChannelGroupSection({
               primaryTypographyProps={{
                 fontSize: 14,
                 fontWeight: activeChannel === ch.id ? 600 : 400,
-                color: activeChannel === ch.id ? "#f2f3f5" : "#949ba4",
+                color: activeChannel === ch.id ? "text.primary" : "text.secondary",
               }}
             />
           </ListItemButton>
@@ -157,7 +157,9 @@ export default function ChannelSidebar() {
         top: 0,
         width: SIDEBAR_WIDTH,
         height: "100vh",
-        bgcolor: "#2b2d31",
+        bgcolor: "#f1f5f9",
+        borderRight: 1,
+        borderColor: "divider",
         display: "flex",
         flexDirection: "column",
         zIndex: 1100,
@@ -170,20 +172,21 @@ export default function ChannelSidebar() {
           display: "flex",
           alignItems: "center",
           px: 2,
-          borderBottom: "2px solid #1e1f22",
+          borderBottom: 1,
+          borderColor: "divider",
           flexShrink: 0,
         }}
       >
         <Typography
           variant="subtitle1"
-          sx={{ color: "#f2f3f5", fontWeight: 700, fontSize: 15 }}
+          sx={{ color: "primary.main", fontWeight: 700, fontSize: 15 }}
         >
           Knowte
         </Typography>
       </Box>
 
       {/* Channel list */}
-      <Box sx={{ flexGrow: 1, overflowY: "auto", pt: 1.5, "&::-webkit-scrollbar": { width: 4 }, "&::-webkit-scrollbar-thumb": { bgcolor: "#1e1f22", borderRadius: 2 } }}>
+      <Box sx={{ flexGrow: 1, overflowY: "auto", pt: 1.5, "&::-webkit-scrollbar": { width: 4 }, "&::-webkit-scrollbar-thumb": { bgcolor: "#cbd5e1", borderRadius: 2 } }}>
         <List disablePadding>
           {channelGroups.map((group) => (
             <ChannelGroupSection
@@ -200,7 +203,7 @@ export default function ChannelSidebar() {
       <Box
         sx={{
           height: 52,
-          bgcolor: "#232428",
+          bgcolor: "#e2e8f0",
           display: "flex",
           alignItems: "center",
           px: 1,
@@ -208,7 +211,7 @@ export default function ChannelSidebar() {
           flexShrink: 0,
         }}
       >
-        <Avatar sx={{ width: 32, height: 32, fontSize: 14, bgcolor: "#5865f2" }}>
+        <Avatar sx={{ width: 32, height: 32, fontSize: 14, bgcolor: "primary.main", color: "primary.contrastText" }}>
           {initials}
         </Avatar>
         <Box sx={{ flexGrow: 1, minWidth: 0 }}>
@@ -216,7 +219,7 @@ export default function ChannelSidebar() {
             sx={{
               fontSize: 13,
               fontWeight: 600,
-              color: "#f2f3f5",
+              color: "text.primary",
               lineHeight: 1.2,
               overflow: "hidden",
               textOverflow: "ellipsis",
@@ -225,17 +228,17 @@ export default function ChannelSidebar() {
           >
             {displayName}
           </Typography>
-          <Typography sx={{ fontSize: 11, color: "#949ba4", lineHeight: 1.2 }}>
+          <Typography sx={{ fontSize: 11, color: "text.secondary", lineHeight: 1.2 }}>
             Online
           </Typography>
         </Box>
-        <IconButton size="small" sx={{ color: "#b5bac1" }}>
+        <IconButton size="small" sx={{ color: "text.secondary" }}>
           <MicRoundedIcon sx={{ fontSize: 18 }} />
         </IconButton>
-        <IconButton size="small" sx={{ color: "#b5bac1" }}>
+        <IconButton size="small" sx={{ color: "text.secondary" }}>
           <HeadsetRoundedIcon sx={{ fontSize: 18 }} />
         </IconButton>
-        <IconButton size="small" onClick={logout} sx={{ color: "#b5bac1" }}>
+        <IconButton size="small" onClick={logout} sx={{ color: "text.secondary" }}>
           <SettingsRoundedIcon sx={{ fontSize: 18 }} />
         </IconButton>
       </Box>

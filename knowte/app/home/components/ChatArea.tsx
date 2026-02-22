@@ -51,7 +51,7 @@ function MessageRow({ message }: { message: Message }) {
         gap: 2,
         px: 2,
         py: 0.5,
-        "&:hover": { bgcolor: "#2e3035" },
+        "&:hover": { bgcolor: "#f8fafc" },
       }}
     >
       <Avatar
@@ -59,7 +59,7 @@ function MessageRow({ message }: { message: Message }) {
           width: 40,
           height: 40,
           mt: 0.5,
-          bgcolor: message.bot ? "#5865f2" : "#747f8d",
+          bgcolor: message.bot ? "primary.main" : "#94a3b8",
           fontSize: 16,
           fontWeight: 700,
         }}
@@ -69,14 +69,14 @@ function MessageRow({ message }: { message: Message }) {
       <Box sx={{ minWidth: 0, flex: 1 }}>
         <Box sx={{ display: "flex", alignItems: "baseline", gap: 1 }}>
           <Typography
-            sx={{ fontSize: 14, fontWeight: 600, color: message.bot ? "#5865f2" : "#f2f3f5" }}
+            sx={{ fontSize: 14, fontWeight: 600, color: message.bot ? "primary.main" : "text.primary" }}
           >
             {message.author}
           </Typography>
           {message.bot && (
             <Box
               sx={{
-                bgcolor: "#5865f2",
+                bgcolor: "primary.main",
                 color: "#fff",
                 fontSize: 10,
                 fontWeight: 700,
@@ -89,9 +89,9 @@ function MessageRow({ message }: { message: Message }) {
               BOT
             </Box>
           )}
-          <Typography sx={{ fontSize: 11, color: "#949ba4" }}>{message.timestamp}</Typography>
+          <Typography sx={{ fontSize: 11, color: "text.secondary" }}>{message.timestamp}</Typography>
         </Box>
-        <Typography sx={{ fontSize: 14, color: "#dbdee1", lineHeight: 1.5, mt: 0.25 }}>
+        <Typography sx={{ fontSize: 14, color: "text.primary", lineHeight: 1.5, mt: 0.25 }}>
           {message.content}
         </Typography>
       </Box>
@@ -112,31 +112,32 @@ export default function ChatArea() {
           display: "flex",
           alignItems: "center",
           px: 2,
-          borderBottom: "2px solid #1e1f22",
+          borderBottom: 1,
+          borderColor: "divider",
           flexShrink: 0,
           gap: 1,
         }}
       >
-        <TagRoundedIcon sx={{ fontSize: 22, color: "#949ba4" }} />
-        <Typography sx={{ fontSize: 15, fontWeight: 700, color: "#f2f3f5" }}>
+        <TagRoundedIcon sx={{ fontSize: 22, color: "text.secondary" }} />
+        <Typography sx={{ fontSize: 15, fontWeight: 700, color: "text.primary" }}>
           general
         </Typography>
-        <Box sx={{ width: 1, height: 24, bgcolor: "#3f4147", mx: 1 }} />
-        <Typography sx={{ fontSize: 13, color: "#949ba4", flexGrow: 1 }}>
+        <Box sx={{ width: 1, height: 24, bgcolor: "divider", mx: 1 }} />
+        <Typography sx={{ fontSize: 13, color: "text.secondary", flexGrow: 1 }}>
           General study discussion
         </Typography>
-        <IconButton size="small" sx={{ color: "#b5bac1" }}>
+        <IconButton size="small" sx={{ color: "text.secondary" }}>
           <NotificationsRoundedIcon sx={{ fontSize: 20 }} />
         </IconButton>
-        <IconButton size="small" sx={{ color: "#b5bac1" }}>
+        <IconButton size="small" sx={{ color: "text.secondary" }}>
           <PushPinRoundedIcon sx={{ fontSize: 20 }} />
         </IconButton>
-        <IconButton size="small" sx={{ color: "#b5bac1" }}>
+        <IconButton size="small" sx={{ color: "text.secondary" }}>
           <PeopleAltRoundedIcon sx={{ fontSize: 20 }} />
         </IconButton>
         <Box
           sx={{
-            bgcolor: "#1e1f22",
+            bgcolor: "#f1f5f9",
             borderRadius: 1,
             display: "flex",
             alignItems: "center",
@@ -148,12 +149,12 @@ export default function ChatArea() {
             placeholder="Search"
             sx={{
               fontSize: 13,
-              color: "#949ba4",
+              color: "text.secondary",
               width: 120,
-              "& input::placeholder": { color: "#949ba4", opacity: 1 },
+              "& input::placeholder": { color: "#94a3b8", opacity: 1 },
             }}
           />
-          <SearchRoundedIcon sx={{ fontSize: 16, color: "#949ba4" }} />
+          <SearchRoundedIcon sx={{ fontSize: 16, color: "text.secondary" }} />
         </Box>
       </Box>
 
@@ -164,18 +165,18 @@ export default function ChatArea() {
           overflowY: "auto",
           py: 2,
           "&::-webkit-scrollbar": { width: 6 },
-          "&::-webkit-scrollbar-thumb": { bgcolor: "#1e1f22", borderRadius: 3 },
+          "&::-webkit-scrollbar-thumb": { bgcolor: "#cbd5e1", borderRadius: 3 },
         }}
       >
         {/* Welcome header */}
         <Box sx={{ px: 2, mb: 3 }}>
-          <Avatar sx={{ width: 68, height: 68, bgcolor: "#5865f2", fontSize: 32, fontWeight: 700, mb: 1 }}>
+          <Avatar sx={{ width: 68, height: 68, bgcolor: "primary.main", fontSize: 32, fontWeight: 700, mb: 1 }}>
             #
           </Avatar>
-          <Typography sx={{ fontSize: 28, fontWeight: 700, color: "#f2f3f5" }}>
+          <Typography sx={{ fontSize: 28, fontWeight: 700, color: "text.primary" }}>
             Welcome to #general
           </Typography>
-          <Typography sx={{ fontSize: 14, color: "#949ba4" }}>
+          <Typography sx={{ fontSize: 14, color: "text.secondary" }}>
             This is the start of the #general channel.
           </Typography>
         </Box>
@@ -189,7 +190,7 @@ export default function ChatArea() {
       <Box sx={{ px: 2, pb: 2, flexShrink: 0 }}>
         <Box
           sx={{
-            bgcolor: "#383a40",
+            bgcolor: "#f1f5f9",
             borderRadius: 2,
             display: "flex",
             alignItems: "center",
@@ -197,7 +198,7 @@ export default function ChatArea() {
             minHeight: 44,
           }}
         >
-          <IconButton size="small" sx={{ color: "#b5bac1" }}>
+          <IconButton size="small" sx={{ color: "text.secondary" }}>
             <AddCircleRoundedIcon sx={{ fontSize: 22 }} />
           </IconButton>
           <InputBase
@@ -206,14 +207,14 @@ export default function ChatArea() {
             sx={{
               mx: 1,
               fontSize: 14,
-              color: "#dbdee1",
-              "& input::placeholder": { color: "#6d6f78", opacity: 1 },
+              color: "text.primary",
+              "& input::placeholder": { color: "#94a3b8", opacity: 1 },
             }}
           />
-          <IconButton size="small" sx={{ color: "#b5bac1" }}>
+          <IconButton size="small" sx={{ color: "text.secondary" }}>
             <GifBoxRoundedIcon sx={{ fontSize: 22 }} />
           </IconButton>
-          <IconButton size="small" sx={{ color: "#b5bac1" }}>
+          <IconButton size="small" sx={{ color: "text.secondary" }}>
             <EmojiEmotionsRoundedIcon sx={{ fontSize: 22 }} />
           </IconButton>
         </Box>
