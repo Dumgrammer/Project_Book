@@ -2,15 +2,11 @@
 
 import Box from "@mui/material/Box";
 import ChatArea from "./components/ChatArea";
-import MembersSidebar from "./components/MembersSidebar";
 
-export default function DashboardPage() {
+export default function HomePage() {
   return (
-    <Box sx={{ display: "flex", height: "100%", overflow: "hidden" }}>
-      <Box sx={{ flexGrow: 1, overflow: "hidden" }}>
-        <ChatArea />
-      </Box>
-      <MembersSidebar />
+    <Box sx={{ height: "100%", overflow: "hidden" }}>
+      <ChatArea />
     </Box>
   );
 }

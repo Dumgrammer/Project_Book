@@ -9,7 +9,7 @@ import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import FolderRoundedIcon from "@mui/icons-material/FolderRounded";
 import BarChartRoundedIcon from "@mui/icons-material/BarChartRounded";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
-
+import Link from "next/link";
 const WIDTH = 72;
 
 interface ServerIconProps {
@@ -69,19 +69,27 @@ export default function ServerBar() {
       }}
     >
       <ServerIcon label="Home" active color="#4f46e5">
+        <Link href="/home">
         <HomeRoundedIcon sx={{ color: "#fff", fontSize: 28 }} />
+        </Link>
       </ServerIcon>
 
       <ServerIcon label="Rooms" color="#0891b2">
-        <GroupsRoundedIcon sx={{ color: "#0891b2", fontSize: 24 }} />
+        <Link href="/rooms">
+          <GroupsRoundedIcon sx={{ color: "#0891b2", fontSize: 24 }} />
+        </Link>
       </ServerIcon>
 
-      <ServerIcon label="Resources" color="#d97706">
-        <FolderRoundedIcon sx={{ color: "#d97706", fontSize: 24 }} />
-      </ServerIcon>
+      {/* <ServerIcon label="Resources" color="#d97706">
+        <Link href="/resources">
+          <FolderRoundedIcon sx={{ color: "#d97706", fontSize: 24 }} />
+        </Link>
+      </ServerIcon> */}
 
       <ServerIcon label="Usage" color="#7c3aed">
-        <BarChartRoundedIcon sx={{ color: "#7c3aed", fontSize: 24 }} />
+        <Link href="/usage">
+          <BarChartRoundedIcon sx={{ color: "#7c3aed", fontSize: 24 }} />
+        </Link>
       </ServerIcon>
 
       <Divider sx={{ width: 32, borderColor: "divider", my: 0.5 }} />
