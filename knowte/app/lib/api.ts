@@ -9,6 +9,13 @@ export const api = axios.create({
 });
 
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  // Important: for FormData uploads, do NOT force JSON Content-Type.
+  // Browser/XHR must set multipart boundary automatically.
+  if (typeof FormData !== "undefined" && config.data instanceof FormData && config.headers) {
+    delete (config.headers as Record<string, unknown>)["Content-Type"];
+    delete (config.headers as Record<string, unknown>)["content-type"];
+  }
+
   if (typeof window !== "undefined") {
     const token = getCookie("access_token");
     if (token) {

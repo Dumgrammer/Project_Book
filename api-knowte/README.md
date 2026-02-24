@@ -1,6 +1,6 @@
 # Knowte API (Backend)
 
-FastAPI backend for auth endpoints used by the frontend and Swagger.
+FastAPI backend for authentication, chat with `phi3` via Ollama, and document QA (PDF upload + Donut DocVQA).
 
 ## Base URL
 
@@ -14,6 +14,8 @@ FastAPI backend for auth endpoints used by the frontend and Swagger.
 - Firebase project
 - Firebase service account JSON file
 - Firebase Authentication with `Email/Password` enabled
+- Ollama installed locally (`ollama serve`)
+- `phi3` model pulled in Ollama (`ollama pull phi3`)
 
 ## Environment Variables
 
@@ -33,6 +35,10 @@ AUTH_TOKEN_TTL_SECONDS=3600
 FIREBASE_CREDENTIALS_PATH=./firebase/your-service-account.json
 FIREBASE_PROJECT_ID=your-project-id
 FIREBASE_WEB_API_KEY=your-web-api-key
+
+# AI / LLM
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=phi3
 ```
 
 ## Run
@@ -40,7 +46,15 @@ FIREBASE_WEB_API_KEY=your-web-api-key
 From `api-knowte`:
 
 ```bash
+pip install -r requirements.txt
 uvicorn app:app --reload --host 127.0.0.1 --port 8000
+```
+
+For Ollama (run in another terminal):
+
+```bash
+ollama serve
+ollama pull phi3
 ```
 
 ---
@@ -56,6 +70,117 @@ Simple health check.
 ```json
 {
   "status": "ok"
+}
+```
+
+---
+
+### `POST /api/v1/agent/chat`
+
+Single-response chat endpoint using Ollama `phi3`.
+
+**Request Body (JSON)**
+
+```json
+{
+  "message": "Explain photosynthesis simply.",
+  "conversation_id": "optional-conversation-id",
+  "history": [
+    { "role": "user", "content": "What is photosynthesis?" },
+    { "role": "assistant", "content": "It is how plants convert light into energy." }
+  ],
+  "system_prompt": "Optional hidden instructions for the AI."
+}
+```
+
+**Response 200**
+
+```json
+{
+  "conversation_id": "uuid",
+  "reply": "Photosynthesis is ...",
+  "model": "phi3"
+}
+```
+
+---
+
+### `POST /api/v1/agent/chat/stream`
+
+Streaming chat endpoint (SSE / `text/event-stream`).
+
+Each event is emitted as:
+
+```json
+{
+  "conversation_id": "uuid",
+  "delta": "partial text chunk",
+  "done": false
+}
+```
+
+Final chunk has `done: true`.
+
+---
+
+### `POST /api/v1/document/upload`
+
+Upload a PDF for DocVQA processing.
+
+**Content-Type**
+
+- `multipart/form-data`
+- Required field name: `file`
+
+**Response 201**
+
+```json
+{
+  "document_id": "uuid",
+  "filename": "notes.pdf",
+  "page_count": 12
+}
+```
+
+---
+
+### `POST /api/v1/document/{document_id}/ask`
+
+Ask a question about a specific uploaded page using Donut (`naver-clova-ix/donut-base-finetuned-docvqa`).
+
+**Request Body (JSON)**
+
+```json
+{
+  "question": "What is the title?",
+  "page": 1
+}
+```
+
+**Response 200**
+
+```json
+{
+  "document_id": "uuid",
+  "question": "What is the title?",
+  "answer": "Biology Module 1",
+  "confidence": 0.84,
+  "model": "naver-clova-ix/donut-base-finetuned-docvqa"
+}
+```
+
+---
+
+### `GET /api/v1/document/{document_id}/text`
+
+Returns extracted plain text from uploaded PDF (useful as context for phi3).
+
+**Response 200**
+
+```json
+{
+  "document_id": "uuid",
+  "text": "extracted text..."
 }
 ```
 
@@ -242,3 +367,26 @@ If authorize popup shows token URL `/auth/token`, restart uvicorn and hard-refre
 - `AuthResponse`
   - `user: UserResponse`
   - `token: TokenResponse`
+
+---
+
+## In-memory storage behavior (no DB yet)
+
+The current AI/document layers are intentionally in-memory.
+
+- Agent conversations live in memory (`_conversations`)
+- Uploaded docs metadata/images live in memory (`_documents`, `_page_images`)
+- Uploaded PDF files are written to `api-knowte/uploads/`
+
+### Safety controls currently enabled
+
+- Upload size limit: **10MB**
+- Max stored docs: **20**
+- Max extracted text chars per doc: **200,000**
+- Max conversations: **200**
+- Max messages per conversation: **50**
+- TTL cleanup:
+  - Documents: **24 hours**
+  - Conversations: **24 hours**
+
+Stopping the API process clears in-memory maps. Files under `uploads/` remain unless cleaned.

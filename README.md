@@ -1,198 +1,116 @@
 # Knowte
 
-An AI-powered study companion that helps students streamline their learning. The project is split into two packages:
+AI-powered study companion with a FastAPI backend and Next.js frontend.
 
 | Package | Stack | Port |
 |---------|-------|------|
-| **api-knowte** | FastAPI, Python 3.12+ | `8000` |
-| **knowte** | Next.js 16, React 19, MUI 7 | `3000` |
-
----
+| `api-knowte` | FastAPI, Python 3.12+, Ollama, Transformers | `8000` |
+| `knowte` | Next.js 16, React 19, MUI 7 | `3000` |
 
 ## Repository structure
 
 ```
 Project_Book/
-├── api-knowte/          # FastAPI backend
-│   ├── models/          # Domain dataclasses
-│   ├── schemas/         # Pydantic request / response models
-│   ├── services/        # Business logic
-│   ├── routes/v1/       # Versioned API endpoints
-│   ├── firebase/        # Firebase Admin SDK key (git-ignored)
-│   ├── config.py        # Centralised settings (reads .env)
-│   └── app.py           # Uvicorn entrypoint
-│
-├── knowte/              # Next.js frontend
-│   └── app/
-│       ├── components/  # Reusable UI components (Navbar, Footer, etc.)
-│       ├── sections/    # Landing-page sections (Hero, Features, Pricing, …)
-│       ├── pages/       # Composed page layouts (HeroLanding)
-│       ├── signin/      # Sign-in page + sub-components
-│       ├── register/    # Registration page (placeholder)
-│       ├── dashboard/   # Dashboard page (placeholder)
-│       ├── schemas/     # Zod validation schemas
-│       ├── models/      # TypeScript type re-exports
-│       ├── hooks/       # React Query hooks (auth)
-│       ├── lib/         # Axios client, QueryClient, Providers
-│       ├── data/        # Static data arrays (nav links, pricing, FAQs, …)
-│       ├── theme.ts     # MUI custom theme
-│       ├── ThemeRegistry.tsx  # Emotion SSR + ThemeProvider
-│       └── layout.tsx   # Root layout (fonts, ThemeRegistry, Providers)
-│
-└── README.md            # ← you are here
+├── api-knowte/   # backend
+├── knowte/       # frontend
+└── README.md     # this file
 ```
+
+For detailed package docs:
+
+- Backend: `api-knowte/README.md`
+- Frontend: `knowte/README.md`
 
 ---
 
-## Backend — api-knowte
+## Quick start (end-to-end)
 
-### Prerequisites
-
-- Python 3.12+
-- A Firebase project with a **service-account key** JSON file
-
-### Setup
+### 1) Backend
 
 ```bash
 cd api-knowte
-
-# Create virtual environment (already done at project root)
-python -m venv .
-
-# Activate
-# Windows:
 Scripts\activate
-# macOS / Linux:
-source bin/activate
-
-# Install dependencies
-pip install fastapi[standard] uvicorn firebase-admin pydantic[email]
-```
-
-### Environment variables
-
-Copy the example and fill in real values:
-
-```bash
-cp .env.example .env
-```
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `APP_NAME` | Knowte API | Displayed in /docs |
-| `APP_ENV` | development | `development` or `production` |
-| `APP_HOST` | 127.0.0.1 | Bind address |
-| `APP_PORT` | 8000 | Bind port |
-| `CORS_ORIGINS` | * | Comma-separated origins |
-| `AUTH_SECRET_KEY` | — | HMAC key for JWT signing |
-| `AUTH_SALT` | — | Salt for password hashing |
-| `AUTH_TOKEN_TTL_SECONDS` | 3600 | Token lifetime |
-| `FIREBASE_CREDENTIALS_PATH` | — | Path to service-account JSON |
-| `FIREBASE_PROJECT_ID` | — | Firebase project ID |
-
-### Running
-
-```bash
+pip install -r requirements.txt
 uvicorn app:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Interactive docs available at **http://127.0.0.1:8000/docs**
+### 2) Ollama (separate terminal)
 
-### API endpoints
+```bash
+ollama serve
+ollama pull phi3
+```
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/api/v1/auth/register` | Register with email + password |
-| `POST` | `/api/v1/auth/login` | Login with email + password |
-| `POST` | `/api/v1/auth/token` | OAuth2 password grant (form-based) |
-| `POST` | `/api/v1/auth/oauth2/firebase` | Login with Firebase ID token |
-| `GET`  | `/api/v1/auth/me` | Get current user (Bearer token) |
-| `GET`  | `/health` | Health check |
-
-### Architecture
-
-- **models/** — Plain Python dataclasses representing domain entities (`AuthUser`, `TokenPayload`).
-- **schemas/** — Pydantic models for request validation and response serialization.
-- **services/** — Core logic: password hashing (PBKDF2-HMAC-SHA256), JWT creation/verification, Firebase Admin SDK integration with lazy loading.
-- **routes/** — Thin FastAPI router layer; delegates to services via dependency injection.
-- **config.py** — Reads `.env` at import time and exposes a frozen `Settings` dataclass.
-
----
-
-## Frontend — knowte
-
-### Prerequisites
-
-- Node.js 18+
-- npm 9+
-
-### Setup
+### 3) Frontend
 
 ```bash
 cd knowte
 npm install
-```
-
-### Environment variables
-
-Create `knowte/.env.local`:
-
-```env
-NEXT_PUBLIC_API_URL=http://127.0.0.1:8000/api/v1
-```
-
-If omitted, the frontend defaults to `http://127.0.0.1:8000/api/v1`.
-
-### Running
-
-```bash
 npm run dev
 ```
 
-Open **http://localhost:3000**
+Open:
 
-### Key libraries
-
-| Library | Purpose |
-|---------|---------|
-| **MUI 7** (`@mui/material`) | Component library + theming |
-| **Emotion** | CSS-in-JS (MUI's styling engine) |
-| **Axios** | HTTP client for API calls |
-| **Zod** | Runtime schema validation |
-| **React Query** (`@tanstack/react-query`) | Server-state management |
-| **Lucide React** | Icon set |
-| **React Fast Marquee** | Scrolling logo banner |
-
-### Pages
-
-| Route | Component | Status |
-|-------|-----------|--------|
-| `/` | `HeroLanding` — full marketing landing page | Done |
-| `/signin` | `SignInSide` — email/password sign-in with MUI template | Done |
-| `/register` | Registration form | Placeholder |
-| `/dashboard` | Authenticated dashboard | Placeholder |
-
-### Authentication flow
-
-1. User submits the sign-in form.
-2. `SignInCard` validates input with `loginSchema` (Zod).
-3. `useLogin()` calls `POST /api/v1/auth/login` via Axios.
-4. Response is validated with `authResponseSchema` (Zod).
-5. `access_token` is persisted to `localStorage`.
-6. Axios interceptor attaches `Authorization: Bearer <token>` to subsequent requests.
-7. User is redirected to `/dashboard`.
-
-### Frontend architecture
-
-- **schemas/** — Zod schemas that mirror the backend Pydantic models exactly, plus inferred TypeScript types.
-- **models/** — Re-exports the Zod-inferred types for clean imports.
-- **hooks/** — React Query mutations (`useLogin`, `useRegister`, `useOAuthFirebase`) and queries (`useCurrentUser`), plus `useLogout`.
-- **lib/api.ts** — Axios instance with base URL and auth interceptor.
-- **lib/Providers.tsx** — `QueryClientProvider` wrapper used in `layout.tsx`.
-- **ThemeRegistry.tsx** — Emotion cache + `ThemeProvider` for SSR-safe MUI in Next.js App Router.
+- Frontend: `http://localhost:3000`
+- Backend docs: `http://127.0.0.1:8000/docs`
 
 ---
 
-## GitLab CI/CD
+## General process flow
 
-Environment variables listed above can be set as **CI/CD Variables** in GitLab (Settings > CI/CD > Variables) instead of a `.env` file. The backend's `config.py` reads from `os.environ` first, falling back to `.env` only for local development.
+### Auth flow
+
+1. User logs in on frontend.
+2. Backend returns token.
+3. Frontend stores token in cookies.
+4. Axios interceptor sends `Authorization: Bearer <token>`.
+
+### Chat flow (phi3)
+
+1. Frontend sends `POST /api/v1/agent/chat` or `/chat/stream`.
+2. Backend `AgentService` builds message history + system prompt.
+3. Backend calls Ollama (`phi3`) and returns response (full or stream).
+
+### Document QA flow (Donut)
+
+1. User selects a PDF in `home` page.
+2. File is staged in UI and uploaded when user clicks **Send**.
+3. Backend `DocumentService`:
+   - validates file,
+   - stores PDF in `uploads/`,
+   - extracts text with PyMuPDF,
+   - converts pages to images,
+   - runs Donut DocVQA for page-question answering.
+4. Frontend can also fetch extracted text (`GET /document/{id}/text`) and pass it as context to phi3.
+
+---
+
+## Current non-DB behavior
+
+Data is currently in-memory for fast iteration:
+
+- Agent conversations stored in memory
+- Document metadata/page images stored in memory
+- Uploaded PDFs stored in `api-knowte/uploads/`
+
+Current safeguards:
+
+- max upload size
+- max documents/conversations
+- max messages per conversation
+- TTL cleanup for docs and conversations
+
+Stopping backend process clears memory maps; files on disk remain unless deleted.
+
+---
+
+## Suggested development loop
+
+1. Start backend + Ollama + frontend.
+2. Use `/docs` to verify endpoint behavior.
+3. Test UI flow in `/home`:
+   - ask without file,
+   - upload PDF then ask,
+   - stream + stop behavior.
+4. Tune prompts, limits, and UI behavior.
+5. Add DB persistence later when ready (users, chats, documents).

@@ -1,6 +1,6 @@
 # Knowte — Frontend
 
-Next.js 16 application with React 19, Material UI 7, and TypeScript.
+Next.js 16 app with React 19, MUI 7, TypeScript, React Query, and Zod.
 
 ## Quick start
 
@@ -13,7 +13,7 @@ Open **http://localhost:3000**
 
 ## Environment variables
 
-Create `.env.local` in this directory:
+Create `knowte/.env.local`:
 
 ```env
 NEXT_PUBLIC_API_URL=http://127.0.0.1:8000/api/v1
@@ -23,76 +23,64 @@ NEXT_PUBLIC_API_URL=http://127.0.0.1:8000/api/v1
 
 ```
 app/
-├── page.tsx              # Root route → renders HeroLanding
-├── layout.tsx            # Root layout (fonts, ThemeRegistry, Providers)
-├── theme.ts              # MUI custom theme (palette, typography, shape)
-├── ThemeRegistry.tsx      # Emotion cache + ThemeProvider (SSR-safe)
+├── page.tsx                # Landing route
+├── layout.tsx              # Root layout + providers
+├── theme.ts                # MUI theme
+├── ThemeRegistry.tsx
 │
 ├── pages/
-│   └── HeroLanding.tsx   # Composes all landing sections
+│   └── HeroLanding.tsx
+├── sections/
+├── components/
+├── data/
 │
-├── sections/             # Landing page sections
-│   ├── HeroSection.tsx
-│   ├── FeaturesSection.tsx
-│   ├── TrustedCompanies.tsx
-│   ├── Pricing.tsx
-│   ├── Testimonials.tsx
-│   ├── FaqSection.tsx
-│   └── BottomBanner.tsx
-│
-├── components/           # Shared UI components
-│   ├── Navbar.tsx
-│   ├── Footer.tsx
-│   ├── SectionTitle.tsx
-│   └── TestimonialCard.tsx
-│
-├── data/                 # Static typed data arrays
-│   ├── navLinks.ts
-│   ├── companiesLogo.ts
-│   ├── pricingData.ts
-│   ├── testimonialsData.ts
-│   └── faqsData.ts
-│
-├── signin/               # Sign-in feature
+├── signin/
+├── register/
+├── home/                   # Main AI workspace
+│   ├── layout.tsx
 │   ├── page.tsx
 │   └── components/
-│       ├── SignInSide.tsx
-│       ├── SignInCard.tsx      # Form → useLogin() hook
-│       ├── ForgotPassword.tsx
-│       ├── Content.tsx
-│       └── CustomIcons.tsx
-│
-├── register/page.tsx     # Registration (placeholder)
-├── dashboard/page.tsx    # Dashboard (placeholder)
+│       ├── ChatArea.tsx
+│       ├── ChannelSidebar.tsx
+│       └── ServerBar.tsx
 │
 ├── schemas/
-│   └── authschema.tsx    # Zod schemas mirroring backend Pydantic models
+│   ├── authschema.tsx
+│   ├── agentschema.tsx
+│   └── documentschema.tsx
 │
 ├── models/
-│   └── authmodel.tsx     # Type re-exports from schemas
+│   ├── authmodel.tsx
+│   ├── agentmodel.tsx
+│   └── documentmodel.tsx
 │
 ├── hooks/
-│   └── auth.tsx          # React Query hooks: useLogin, useRegister, useOAuthFirebase, useCurrentUser, useLogout
+│   ├── auth.tsx
+│   ├── agent.tsx
+│   └── document.tsx
 │
 └── lib/
-    ├── api.ts            # Axios instance + auth interceptor
-    ├── queryClient.ts    # Singleton QueryClient (SSR-safe)
-    └── Providers.tsx     # QueryClientProvider wrapper
+    ├── api.ts
+    ├── cookies.ts
+    ├── queryClient.ts
+    └── Providers.tsx
 ```
 
 ## Authentication flow
 
 ```
-User submits form
-  → Zod validates input (loginSchema)
+User submits sign-in form
+  → Zod validates input
   → useLogin() calls POST /api/v1/auth/login
-  → Response validated with authResponseSchema
-  → access_token saved to localStorage
+  → Response validated with Zod
+  → access_token saved to cookies
   → Axios interceptor attaches Bearer token
-  → Redirect to /dashboard
+  → Redirect to /home
 ```
 
 ## Available hooks
+
+### Auth hooks
 
 | Hook | Endpoint | Description |
 |------|----------|-------------|
@@ -100,13 +88,36 @@ User submits form
 | `useRegister()` | `POST /auth/register` | New account registration |
 | `useOAuthFirebase()` | `POST /auth/oauth2/firebase` | Firebase ID token login |
 | `useCurrentUser()` | `GET /auth/me` | Fetch authenticated user |
-| `useLogout()` | — | Clear token, redirect to /signin |
+| `useLogout()` | — | Clear token cookie + redirect |
+
+### Agent hooks
+
+| Hook | Endpoint | Description |
+|------|----------|-------------|
+| `useAgentChat()` | `POST /agent/chat` | Single full AI response |
+| `useAgentStream()` | `POST /agent/chat/stream` | SSE streaming AI response |
+
+### Document hooks
+
+| Hook | Endpoint | Description |
+|------|----------|-------------|
+| `useDocumentUpload()` | `POST /document/upload` | Upload PDF |
+| `useDocumentAsk()` | `POST /document/{id}/ask` | Ask DocVQA question per page |
+| `useDocumentText()` | `GET /document/{id}/text` | Get extracted text context |
+
+## Home chat flow (`app/home/components/ChatArea.tsx`)
+
+1. User optionally selects a PDF.
+2. PDF is staged in UI, then uploaded when user clicks **Send**.
+3. Frontend fetches extracted text from backend.
+4. Message is sent to `useAgentStream()` with optional `system_prompt` context from document text.
+5. Assistant response streams chunk-by-chunk into the chat bubble.
 
 ## Scripts
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | Start dev server on port 3000 |
+| `npm run dev` | Start dev server |
 | `npm run build` | Production build |
 | `npm run start` | Serve production build |
 | `npm run lint` | Run ESLint |
