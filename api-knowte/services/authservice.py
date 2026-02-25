@@ -6,6 +6,7 @@ import json
 import time
 import urllib.error
 import urllib.request
+from datetime import date
 from pathlib import Path
 from types import ModuleType
 from typing import TypedDict, cast
@@ -33,7 +34,11 @@ class AuthService:
         firebase_uid = self._register_user_in_firebase(
             email=email,
             password=payload.password,
-            full_name=payload.full_name,
+            f_name=payload.f_name,
+            m_name=payload.m_name,
+            l_name=payload.l_name,
+            sex=payload.sex,
+            birth_date=payload.birth_date,
         )
         return self._get_firebase_user_by_uid(firebase_uid)
 
@@ -137,7 +142,16 @@ class AuthService:
 
         return self._get_firebase_user_by_uid(firebase_uid)
 
-    def _register_user_in_firebase(self, email: str, password: str, full_name: str | None) -> str:
+    def _register_user_in_firebase(
+        self,
+        email: str,
+        password: str,
+        f_name: str,
+        m_name: str | None,
+        l_name: str,
+        sex: str,
+        birth_date: date,
+    ) -> str:
         firebase_admin, firebase_auth = self._load_firebase_modules()
         if firebase_admin is None or firebase_auth is None:
             raise HTTPException(
@@ -146,12 +160,24 @@ class AuthService:
             )
 
         self._ensure_firebase_initialized(firebase_admin)
+        full_name = " ".join(part for part in [f_name, m_name, l_name] if part).strip()
 
         try:
             created_user = firebase_auth.create_user(
                 email=email,
                 password=password,
                 display_name=full_name,
+            )
+            # Keep profile fields with the Firebase account for readback on /auth/me.
+            firebase_auth.set_custom_user_claims(
+                created_user.uid,
+                {
+                    "f_name": f_name,
+                    "m_name": m_name or "",
+                    "l_name": l_name,
+                    "sex": sex,
+                    "birth_date": birth_date.isoformat(),
+                },
             )
         except Exception as exc:  # noqa: BLE001 - map SDK errors into API errors
             if exc.__class__.__name__ in {"EmailAlreadyExistsError", "AlreadyExistsError"}:
@@ -310,12 +336,40 @@ class AuthService:
                 detail="User is inactive.",
             )
 
+        display_name = str(getattr(firebase_user, "display_name", "") or "").strip()
+        name_parts = display_name.split()
+        claims = getattr(firebase_user, "custom_claims", {}) or {}
+        if not isinstance(claims, dict):
+            claims = {}
+
+        f_name = str(claims.get("f_name") or (name_parts[0] if name_parts else "User"))
+        m_name_claim = claims.get("m_name")
+        m_name = str(m_name_claim) if isinstance(m_name_claim, str) and m_name_claim else None
+        l_name = str(claims.get("l_name") or (name_parts[-1] if len(name_parts) > 1 else f_name))
+        sex = str(claims.get("sex") or "other").lower()
+        if sex not in {"male", "female", "other"}:
+            sex = "other"
+
+        birth_date_raw = claims.get("birth_date")
+        birth_date: date
+        if isinstance(birth_date_raw, str):
+            try:
+                birth_date = date.fromisoformat(birth_date_raw)
+            except ValueError:
+                birth_date = date(1970, 1, 1)
+        else:
+            birth_date = date(1970, 1, 1)
+
         return AuthUser(
             id=str(getattr(firebase_user, "uid", uid)),
             email=user_email.lower(),
             hashed_password="",
             is_active=True,
-            full_name=getattr(firebase_user, "display_name", None),
+            f_name=f_name,
+            m_name=m_name,
+            l_name=l_name,
+            sex=sex,
+            birth_date=birth_date,
         )
 
     def _ensure_firebase_initialized(self, firebase_admin: ModuleType) -> None:

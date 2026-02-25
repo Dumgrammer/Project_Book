@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
 from uuid import uuid4
-
+from pydantic import Field
 
 @dataclass(slots=True)
 class AuthUser:
@@ -10,7 +10,11 @@ class AuthUser:
     email: str = ""
     hashed_password: str = ""
     is_active: bool = True
-    full_name: Optional[str] = None
+    f_name: str = Field(min_length=2, max_length=150)
+    m_name: str = Field(default="")
+    l_name: str = Field(min_length=2, max_length=150)
+    sex: str = Field(pattern="^(male|female|other)$")
+    birth_date: datetime = Field(default=datetime.utcnow())
     created_at: datetime = field(default_factory=datetime.utcnow)
 
 

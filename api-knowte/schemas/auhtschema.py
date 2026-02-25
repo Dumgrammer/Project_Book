@@ -1,15 +1,20 @@
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
-
+from datetime import date
 
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
-    full_name: str | None = None
+    f_name: str = Field(min_length=2, max_length=150)
+    m_name: str | None = None
+    l_name: str = Field(min_length=2, max_length=150)
+    sex: str = Field(pattern="^(male|female|other)$")
+    birth_date: date = Field(le=date.today())
+
 
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=8, max_length=128)
+    password: str = Field(min_length=8, max_length=128) 
 
 
 class OAuthLoginRequest(BaseModel):
@@ -26,7 +31,11 @@ class UserResponse(BaseModel):
     id: str
     email: EmailStr
     is_active: bool
-    full_name: str | None = None
+    f_name: str = Field(min_length=2, max_length=150)
+    m_name: str | None = None
+    l_name: str = Field(min_length=2, max_length=150)
+    sex: str = Field(pattern="^(male|female|other)$")
+    birth_date: date = Field(le=date.today())
 
     model_config = ConfigDict(from_attributes=True)
 
