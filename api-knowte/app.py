@@ -5,6 +5,7 @@ from config import settings
 from routes.v1.endpoints.authroutes import router as auth_router
 from routes.v1.endpoints.agentroutes import router as agent_router
 from routes.v1.endpoints.documentroutes import router as document_router
+from routes.v1.endpoints.roomroutes import router as room_router
 
 
 def create_app() -> FastAPI:
@@ -21,6 +22,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(agent_router, prefix="/api/v1")
     app.include_router(document_router, prefix="/api/v1")
+    app.include_router(room_router, prefix="/api/v1")
 
     @app.get("/health", tags=["health"])
     def health() -> dict[str, str]:

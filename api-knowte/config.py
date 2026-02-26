@@ -51,6 +51,9 @@ class Settings:
     firebase_credentials_path: str | None
     firebase_project_id: str | None
     firebase_web_api_key: str | None
+    supabase_url: str | None
+    supabase_key: str | None
+    supabase_service_role_key: str | None
     ollama_base_url: str
     ollama_model: str
 
@@ -69,6 +72,9 @@ def load_settings() -> Settings:
         firebase_credentials_path=os.getenv("FIREBASE_CREDENTIALS_PATH"),
         firebase_project_id=os.getenv("FIREBASE_PROJECT_ID"),
         firebase_web_api_key=os.getenv("FIREBASE_WEB_API_KEY"),
+        supabase_url=os.getenv("SUPABASE_URL"),
+        supabase_key=os.getenv("SUPABASE_KEY"),
+        supabase_service_role_key=os.getenv("SUPABASE_SERVICE_ROLE_KEY"),
         ollama_base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
         ollama_model=os.getenv("OLLAMA_MODEL", "phi3"),
     )

@@ -186,6 +186,51 @@ Returns extracted plain text from uploaded PDF (useful as context for phi3).
 
 ---
 
+### `POST /api/v1/rooms`
+
+Create a room.
+
+### `GET /api/v1/rooms`
+
+List rooms using cursor-based pagination.
+
+Query params:
+
+- `limit` (default `20`, max `100`)
+- `cursor` (ISO datetime, optional)
+- `owner_id` (optional)
+
+### `GET /api/v1/rooms/{room_id}`
+
+Get a single room by UUID.
+
+### `PATCH /api/v1/rooms/{room_id}`
+
+Update one or more room fields.
+
+### `DELETE /api/v1/rooms/{room_id}`
+
+Delete a room by UUID.
+
+---
+
+## Firebase Firestore Setup (rooms)
+
+Rooms are stored in Firestore collection `rooms` with document id = room UUID.
+Each document includes:
+
+- `id` (string UUID)
+- `r_name` (string)
+- `r_tags` (array of strings)
+- `r_description` (string)
+- `r_is_private` (boolean)
+- `r_max_members` (number)
+- `r_owner_id` (string, Firebase UID)
+- `created_at` (timestamp)
+- `updated_at` (timestamp)
+
+---
+
 ### `POST /api/v1/auth/register`
 
 Create a new Firebase user and return app auth token.
