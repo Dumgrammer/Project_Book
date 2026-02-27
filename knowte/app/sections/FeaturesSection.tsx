@@ -10,18 +10,18 @@ import SectionTitle from "../components/SectionTitle";
 
 const features = [
   {
-    title: "Feedback analyzer",
-    description: "Track product sentiment and prioritize changes with confidence.",
+    title: "Document Q&A",
+    description: "Upload PDFs, notes, or textbooks and ask questions — get accurate, AI-generated answers instantly.",
     image: "https://raw.githubusercontent.com/prebuiltui/prebuiltui/main/assets/features/image-1.png",
   },
   {
-    title: "User management",
-    description: "Manage account roles and access from one clean dashboard.",
+    title: "Quiz & Flashcard Generator",
+    description: "Automatically create quizzes, flashcards, and practice tests from any uploaded document.",
     image: "https://raw.githubusercontent.com/prebuiltui/prebuiltui/main/assets/features/image-2.png",
   },
   {
-    title: "Better invoicing",
-    description: "Keep billing simple with automated invoices and clear reporting.",
+    title: "Smart Study Notes",
+    description: "Generate concise summaries and study guides from lengthy academic materials in seconds.",
     image: "https://raw.githubusercontent.com/prebuiltui/prebuiltui/main/assets/features/image-3.png",
   },
 ];
@@ -32,8 +32,8 @@ export default function FeaturesSection() {
       <Container maxWidth="lg">
         <SectionTitle
           text1="Features"
-          text2="Features Overview"
-          text3="A curated set of product capabilities designed for fast delivery."
+          text2="Powerful AI Tools for Academics"
+          text3="From document answering to quiz generation — everything you need to study smarter."
         />
 
         <Grid container spacing={4} justifyContent="center" sx={{ mt: 6 }}>

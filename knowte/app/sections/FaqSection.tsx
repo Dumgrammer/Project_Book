@@ -24,8 +24,8 @@ export const FaqSection = () => {
       <Container maxWidth="sm">
         <SectionTitle
           text1="FAQ"
-          text2="Frequently asked questions"
-          text3="Ship beautiful frontends without the overhead."
+          text2="Frequently Asked Questions"
+          text3="Everything you need to know about using Knowte for your studies."
         />
 
         <Box sx={{ mt: 4 }}>

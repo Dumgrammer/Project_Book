@@ -73,7 +73,7 @@ export default function RoomsPage() {
     createRoom.error?.message || updateRoom.error?.message || deleteRoom.error?.message || null;
 
   return (
-    <Box sx={{ maxWidth: 1200, mx: "auto", px: 4, py: 4 }}>
+    <Box sx={{ maxWidth: 1200, px: 4, py: 4 }}>
       {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" sx={{ fontWeight: 700, color: "text.primary", mb: 0.5 }}>

@@ -44,14 +44,6 @@ function getInitials(name: string): string[] {
     .map((w) => w[0].toUpperCase());
 }
 
-function hashStr(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return Math.abs(hash);
-}
-
 interface RoomCardProps {
   room: RoomResponse;
   onEdit: (room: RoomResponse) => void;

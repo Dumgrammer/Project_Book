@@ -18,7 +18,7 @@ import { styled } from "@mui/material/styles";
 import { AxiosError } from "axios";
 
 import ForgotPassword from "./ForgotPassword";
-import { GoogleIcon, SitemarkIcon } from "./CustomIcons";
+import { GoogleIcon } from "./CustomIcons";
 import { useLogin } from "../../hooks/auth";
 import { loginSchema } from "../../schemas/authschema";
 
@@ -82,9 +82,7 @@ export default function SignInCard() {
 
   return (
     <Card variant="outlined">
-      <Box sx={{ display: { xs: "flex", md: "none" } }}>
-        <SitemarkIcon />
-      </Box>
+      
       <Typography
         component="h1"
         variant="h4"

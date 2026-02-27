@@ -17,8 +17,8 @@ export default function Testimonials() {
       <Container maxWidth="lg" disableGutters>
         <SectionTitle
           text1="Testimonials"
-          text2="Our Social Proof"
-          text3="Trusted by teams shipping quickly with confidence."
+          text2="Loved by Students & Educators"
+          text3="See how Knowte is helping learners achieve more with AI-powered tools."
         />
 
         <Box sx={{ mt: 5 }}>

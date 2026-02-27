@@ -16,36 +16,36 @@ export type PricingPlan = {
 
 export const pricingData: PricingPlan[] = [
   {
-    title: "Starter",
-    price: 19,
-    buttonText: "Choose Starter",
+    title: "Student",
+    price: 0,
+    buttonText: "Get Started Free",
     mostPopular: false,
     features: [
-      { name: "1 project", icon: CheckIcon },
-      { name: "Email support", icon: ZapIcon },
-      { name: "Community access", icon: SparklesIcon },
+      { name: "5 document uploads", icon: CheckIcon },
+      { name: "AI document Q&A", icon: SparklesIcon },
+      { name: "Basic quiz generation", icon: ZapIcon },
     ],
   },
   {
-    title: "Pro",
-    price: 49,
-    buttonText: "Choose Pro",
+    title: "Pro Learner",
+    price: 12,
+    buttonText: "Upgrade to Pro",
     mostPopular: true,
     features: [
-      { name: "10 projects", icon: CheckIcon },
-      { name: "Priority support", icon: ZapIcon },
-      { name: "AI enhancements", icon: SparklesIcon },
+      { name: "Unlimited documents", icon: CheckIcon },
+      { name: "Advanced AI answers", icon: SparklesIcon },
+      { name: "Flashcards & study guides", icon: ZapIcon },
     ],
   },
   {
-    title: "Scale",
-    price: 99,
+    title: "Institution",
+    price: 49,
     buttonText: "Contact Sales",
     mostPopular: false,
     features: [
-      { name: "Unlimited projects", icon: CheckIcon },
-      { name: "Dedicated manager", icon: ZapIcon },
-      { name: "Advanced analytics", icon: SparklesIcon },
+      { name: "Unlimited rooms & users", icon: CheckIcon },
+      { name: "Bulk document processing", icon: SparklesIcon },
+      { name: "Analytics & admin dashboard", icon: ZapIcon },
     ],
   },
 ];

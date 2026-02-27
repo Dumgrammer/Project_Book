@@ -5,15 +5,23 @@ export type FaqItem = {
 
 export const faqsData: FaqItem[] = [
   {
-    question: "Can I use this for commercial projects?",
-    answer: "Yes. You can use these UI sections in personal and commercial projects.",
+    question: "What types of documents can I upload?",
+    answer: "You can upload PDFs, Word documents, PowerPoint slides, and plain text files. Knowte's AI will process and index them for instant Q&A and material generation.",
   },
   {
-    question: "Do I need Tailwind knowledge?",
-    answer: "Basic Tailwind familiarity helps, but the components are ready to use.",
+    question: "How accurate are the AI-generated answers?",
+    answer: "Knowte's AI uses advanced retrieval-augmented generation to pull answers directly from your uploaded documents, ensuring high accuracy and source-backed responses.",
   },
   {
-    question: "Is this mobile responsive?",
-    answer: "Yes, all sections are built to adapt cleanly across device sizes.",
+    question: "Can I generate quizzes and flashcards from my notes?",
+    answer: "Absolutely! Simply upload your study materials and Knowte will automatically generate quizzes, flashcards, and practice tests tailored to the content.",
+  },
+  {
+    question: "Is my data secure?",
+    answer: "Yes. All uploaded documents are encrypted and stored securely. Your data is never shared with third parties or used to train external models.",
+  },
+  {
+    question: "Can educators use Knowte for their classes?",
+    answer: "Yes! Educators can create rooms, upload course materials, and share AI-generated study resources with their students through collaborative workspaces.",
   },
 ];

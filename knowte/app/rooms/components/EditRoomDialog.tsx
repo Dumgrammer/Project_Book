@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
@@ -51,20 +51,14 @@ export default function EditRoomDialog({
   onSubmit,
   isPending,
 }: EditRoomDialogProps) {
-  const [form, setForm] = useState<RoomFormState>({
+  const emptyForm: RoomFormState = {
     r_name: "",
     r_description: "",
     r_tags: "",
     r_is_private: false,
     r_max_members: 8,
-  });
-
-  // Sync form state when the room prop changes
-  useEffect(() => {
-    if (room) {
-      setForm(toFormState(room));
-    }
-  }, [room]);
+  };
+  const [form, setForm] = useState<RoomFormState>(emptyForm);
 
   async function handleUpdate() {
     if (!room) return;
@@ -78,7 +72,16 @@ export default function EditRoomDialog({
   }
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      TransitionProps={{
+        onEnter: () => setForm(room ? toFormState(room) : emptyForm),
+        onExited: () => setForm(emptyForm),
+      }}
+    >
       <DialogTitle sx={{ fontWeight: 700 }}>Edit Room</DialogTitle>
       <DialogContent sx={{ display: "grid", gap: 2, pt: "8px !important" }}>
         <TextField

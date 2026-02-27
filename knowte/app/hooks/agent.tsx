@@ -29,7 +29,7 @@ export function useAgentStream() {
   const [isStreaming, setIsStreaming] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
-  const send = useCallback(async (payload: ChatRequest) => {
+  const send = useCallback(async (payload: ChatRequest): Promise<string> => {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -58,6 +58,7 @@ export function useAgentStream() {
       const decoder = new TextDecoder();
       let buffer = "";
 
+      let finalReply = "";
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -75,18 +76,20 @@ export function useAgentStream() {
             const chunk = streamChunkSchema.parse(JSON.parse(json));
             setConversationId(chunk.conversation_id);
             setStreamedReply((prev) => prev + chunk.delta);
+            finalReply += chunk.delta;
 
             if (chunk.done) {
               setIsStreaming(false);
-              return;
+              return finalReply;
             }
           } catch {
             // skip malformed chunks
           }
         }
       }
+      return finalReply;
     } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") return;
+      if (err instanceof DOMException && err.name === "AbortError") return "";
       throw err;
     } finally {
       setIsStreaming(false);
@@ -98,7 +101,14 @@ export function useAgentStream() {
     setIsStreaming(false);
   }, []);
 
-  return { send, stop, streamedReply, conversationId, isStreaming };
+  const reset = useCallback(() => {
+    abortRef.current?.abort();
+    setIsStreaming(false);
+    setStreamedReply("");
+    setConversationId(null);
+  }, []);
+
+  return { send, stop, reset, streamedReply, conversationId, isStreaming };
 }
 
 /**

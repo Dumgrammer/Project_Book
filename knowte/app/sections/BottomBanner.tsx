@@ -3,7 +3,6 @@ import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import GitHubIcon from "@mui/icons-material/GitHub";
 
 export default function BottomBanner() {
   return (
@@ -17,10 +16,10 @@ export default function BottomBanner() {
           sx={{ borderTop: 1, borderBottom: 1, borderColor: "divider", borderStyle: "dashed", py: 8, textAlign: { xs: "center", md: "left" } }}
         >
           <Typography variant="h6" fontWeight={600} sx={{ maxWidth: 360 }}>
-            Join hundreds of developers building better SaaS products.
+            Join thousands of students and educators transforming how they learn with AI.
           </Typography>
-          <Button variant="contained" startIcon={<GitHubIcon />} size="large">
-            Star on Github
+          <Button variant="contained" size="large" href="/register">
+            Start Learning Smarter
           </Button>
         </Stack>
       </Container>

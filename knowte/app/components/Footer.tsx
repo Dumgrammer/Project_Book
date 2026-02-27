@@ -22,8 +22,8 @@ export default function Footer() {
               Knowte
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 2, maxWidth: 360 }}>
-              Launch your SaaS product in record time with an all-in-one platform designed
-              for speed, flexibility, and growth.
+              Your AI-powered academic companion. Upload documents, ask questions,
+              and create study materials — all in one place.
             </Typography>
           </Grid>
 

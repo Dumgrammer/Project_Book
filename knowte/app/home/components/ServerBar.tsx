@@ -6,7 +6,6 @@ import Avatar from "@mui/material/Avatar";
 import Divider from "@mui/material/Divider";
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
-import FolderRoundedIcon from "@mui/icons-material/FolderRounded";
 import BarChartRoundedIcon from "@mui/icons-material/BarChartRounded";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import Link from "next/link";

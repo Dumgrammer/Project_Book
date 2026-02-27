@@ -34,9 +34,30 @@ const suggestions: Suggestion[] = [
   { label: "Summarize my file contents", icon: <SummarizeRoundedIcon sx={{ fontSize: 18 }} /> },
   { label: "Generate flashcards", icon: <StyleRoundedIcon sx={{ fontSize: 18 }} /> },
   { label: "Find key topics in document", icon: <FindInPageRoundedIcon sx={{ fontSize: 18 }} /> },
-  { label: "Explain this concept", icon: <SchoolRoundedIcon sx={{ fontSize: 18 }} /> },
+  { label: "Explain concepts in document", icon: <SchoolRoundedIcon sx={{ fontSize: 18 }} /> },
   { label: "Create study outline", icon: <DescriptionRoundedIcon sx={{ fontSize: 18 }} /> },
 ];
+
+const FLASHCARD_LABEL = "Generate flashcards";
+
+function buildSuggestionPrompt(label: string): string {
+  switch (label) {
+    case "Create a quiz from my notes":
+      return "Create a quiz from the uploaded document. Include 10 questions with an answer key at the end.";
+    case "Summarize my file contents":
+      return "Summarize the uploaded document. Provide: 1) short summary, 2) section-by-section summary, 3) key takeaways.";
+    case "Generate flashcards":
+      return "Generate 15 flashcards from the uploaded document in Q/A format. Focus on important facts and definitions.";
+    case "Find key topics in document":
+      return "Find the key topics in the uploaded document. For each topic, include why it matters and related subtopics.";
+    case "Explain concepts in document":
+      return "Explain the main concepts from the uploaded document in simple terms, with one clear example per concept.";
+    case "Create study outline":
+      return "Create a study outline based on the uploaded document with sections, priorities, and a suggested study order.";
+    default:
+      return label;
+  }
+}
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -58,29 +79,28 @@ export default function ChatArea() {
 
   const upload = useDocumentUpload();
   const { data: docText } = useDocumentText(documentId);
-  const { send, stop, streamedReply, conversationId, isStreaming } = useAgentStream();
+  const { send, stop, reset, streamedReply, conversationId, isStreaming } = useAgentStream();
   const hasMessages = messages.length > 0;
-
-  useEffect(() => {
-    if (!streamedReply) return;
-    setMessages((prev) => {
-      if (prev.length === 0) return prev;
-      const next = [...prev];
-      const last = next[next.length - 1];
-      if (last.role === "assistant") {
-        next[next.length - 1] = { ...last, content: streamedReply };
-      }
-      return next;
-    });
-  }, [streamedReply]);
 
   useEffect(() => {
     listEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isStreaming]);
 
   const handleSend = async (seed?: string) => {
-    const text = (seed ?? input).trim();
+    const rawText = (seed ?? input).trim();
+    const text = seed ? buildSuggestionPrompt(rawText) : rawText;
+    const isFlashcardAction = !!seed && rawText === FLASHCARD_LABEL;
     if (!text || isStreaming) return;
+    const popup = isFlashcardAction ? window.open("/flashcard", "_blank") : null;
+    if (isFlashcardAction && !popup) {
+      setUiError("Please allow pop-ups to open the flashcard tab.");
+      return;
+    }
+    if (seed && !selectedFile && !documentId) {
+      if (popup) popup.close();
+      setUiError("Upload a PDF first so I can use your document for this task.");
+      return;
+    }
 
     setUiError(null);
     const history = messages.map((m) => ({ role: m.role, content: m.content }));
@@ -108,13 +128,50 @@ export default function ChatArea() {
         ? `You are Knowte AI, a study assistant. Use this document content as context:\n\n${documentContextText.slice(0, 8000)}`
         : undefined;
 
-      await send({
+      if (isFlashcardAction) {
+        if (!nextDocumentId) {
+          throw new Error("No uploaded document available for flashcard generation.");
+        }
+        const flashcardUrl =
+          `/flashcard?documentId=${encodeURIComponent(nextDocumentId)}` +
+          `&prompt=${encodeURIComponent(text)}&count=12`;
+
+        if (popup) {
+          popup.location.href = flashcardUrl;
+        }
+        setMessages((prev) => {
+          if (prev.length === 0) return prev;
+          const next = [...prev];
+          const last = next[next.length - 1];
+          if (last.role === "assistant" && !last.content) {
+            next[next.length - 1] = {
+              role: "assistant",
+              content: "Opened flashcards in a new tab.",
+            };
+          }
+          return next;
+        });
+        return;
+      }
+
+      const finalReply = await send({
         message: text,
         conversation_id: conversationId ?? undefined,
         history,
         system_prompt: systemPrompt,
       });
+
+      setMessages((prev) => {
+        if (prev.length === 0) return prev;
+        const next = [...prev];
+        const last = next[next.length - 1];
+        if (last.role === "assistant" && !last.content) {
+          next[next.length - 1] = { ...last, content: finalReply || streamedReply };
+        }
+        return next;
+      });
     } catch (err) {
+      if (popup) popup.close();
       setUiError(err instanceof Error ? err.message : "Failed to send message.");
       setMessages((prev) => {
         if (prev.length === 0) return prev;
@@ -147,6 +204,8 @@ export default function ChatArea() {
     if (!file) return;
 
     setUiError(null);
+    reset();
+    setMessages([]);
     setSelectedFile(file);
     setUploadedFilename(file.name);
     setDocumentId(null);
@@ -253,7 +312,12 @@ export default function ChatArea() {
                       wordBreak: "break-word",
                     }}
                   >
-                    {message.content || (isStreaming && message.role === "assistant" ? <CircularProgress size={14} /> : "")}
+                    {message.content ||
+                      (message.role === "assistant" && index === messages.length - 1 ? (
+                        streamedReply || (isStreaming ? <CircularProgress size={14} /> : "")
+                      ) : (
+                        ""
+                      ))}
                   </Box>
                 </Box>
               </Box>

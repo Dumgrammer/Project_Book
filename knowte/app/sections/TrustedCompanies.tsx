@@ -14,7 +14,7 @@ export default function TrustedCompanies() {
   return (
     <Box component="section" sx={{ mt: 12, pb: 6 }}>
       <Typography variant="body2" color="text.secondary" align="center" fontWeight={500} sx={{ mb: 6 }}>
-        Trusted by leading brands, including
+        Trusted by students and educators at top institutions
       </Typography>
       <Container maxWidth="md" disableGutters>
         <Marquee gradient speed={25}>

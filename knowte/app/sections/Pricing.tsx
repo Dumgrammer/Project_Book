@@ -19,8 +19,8 @@ export default function Pricing() {
       <Container maxWidth="lg">
         <SectionTitle
           text1="Pricing"
-          text2="Our Pricing Plans"
-          text3="Flexible options designed for early teams and growing products."
+          text2="Plans for Every Learner"
+          text3="Whether you're a student, educator, or institution — there's a plan for you."
         />
 
         <Grid container spacing={3} justifyContent="center" sx={{ mt: 6 }}>
