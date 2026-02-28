@@ -186,6 +186,55 @@ Returns extracted plain text from uploaded PDF (useful as context for phi3).
 
 ---
 
+### `POST /api/v1/flashcard/generate`
+
+Generate study flashcards from an uploaded document's extracted text.
+
+This endpoint depends on:
+
+1. A previously uploaded PDF (`/document/upload`)
+2. Extracted document text available in `DocumentService`
+3. Ollama model configured in `.env` (`OLLAMA_MODEL`)
+
+**Request Body (JSON)**
+
+```json
+{
+  "document_id": "uuid-from-upload",
+  "prompt": "Focus on definitions and key formulas.",
+  "count": 12
+}
+```
+
+**Validation**
+
+- `document_id`: required
+- `prompt`: 1-4096 chars
+- `count`: min `3`, max `30`, default `12`
+
+**Response 200**
+
+```json
+{
+  "document_id": "uuid-from-upload",
+  "prompt": "Focus on definitions and key formulas.",
+  "flashcards": [
+    {
+      "question": "What is photosynthesis?",
+      "answer": "Process where plants convert light into chemical energy."
+    }
+  ],
+  "model": "phi3"
+}
+```
+
+**Common Errors**
+
+- `400`: document has no extracted text
+- `502`: Ollama unavailable or invalid model output
+
+---
+
 ### `POST /api/v1/rooms`
 
 Create a room.
@@ -412,6 +461,18 @@ If authorize popup shows token URL `/auth/token`, restart uvicorn and hard-refre
 - `AuthResponse`
   - `user: UserResponse`
   - `token: TokenResponse`
+- `GenerateFlashcardsRequest`
+  - `document_id: str`
+  - `prompt: str`
+  - `count: int` (`3..30`, default `12`)
+- `GenerateFlashcardsResponse`
+  - `document_id: str`
+  - `prompt: str`
+  - `flashcards: list[FlashcardItem]`
+  - `model: str`
+- `FlashcardItem`
+  - `question: str` (max 200 chars)
+  - `answer: str` (max 300 chars)
 
 ---
 

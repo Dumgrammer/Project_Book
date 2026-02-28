@@ -47,17 +47,20 @@ app/
 ├── schemas/
 │   ├── authschema.tsx
 │   ├── agentschema.tsx
-│   └── documentschema.tsx
+│   ├── documentschema.tsx
+│   └── flashcardschema.tsx
 │
 ├── models/
 │   ├── authmodel.tsx
 │   ├── agentmodel.tsx
-│   └── documentmodel.tsx
+│   ├── documentmodel.tsx
+│   └── flashcardmodel.tsx
 │
 ├── hooks/
 │   ├── auth.tsx
 │   ├── agent.tsx
-│   └── document.tsx
+│   ├── document.tsx
+│   └── flashcard.tsx
 │
 └── lib/
     ├── api.ts
@@ -105,6 +108,12 @@ User submits sign-in form
 | `useDocumentAsk()` | `POST /document/{id}/ask` | Ask DocVQA question per page |
 | `useDocumentText()` | `GET /document/{id}/text` | Get extracted text context |
 
+### Flashcard hooks
+
+| Hook | Endpoint | Description |
+|------|----------|-------------|
+| `useGenerateFlashcards()` | `POST /flashcard/generate` | Generate flashcards from uploaded doc text |
+
 ## Home chat flow (`app/home/components/ChatArea.tsx`)
 
 1. User optionally selects a PDF.
@@ -112,6 +121,15 @@ User submits sign-in form
 3. Frontend fetches extracted text from backend.
 4. Message is sent to `useAgentStream()` with optional `system_prompt` context from document text.
 5. Assistant response streams chunk-by-chunk into the chat bubble.
+
+## Flashcard generation flow
+
+1. Upload a PDF first and get `document_id`.
+2. Call `useGenerateFlashcards()` with:
+   - `document_id`
+   - `prompt` (e.g. "focus on key terms")
+   - `count` (3-30, default 12)
+3. Backend returns a deck of `{ question, answer }` items.
 
 ## Scripts
 

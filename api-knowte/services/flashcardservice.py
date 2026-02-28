@@ -12,6 +12,15 @@ MAX_SOURCE_TEXT_CHARS = 12_000
 
 
 class FlashcardService:
+    """
+    Generates flashcards from document text using the configured Ollama model.
+
+    Design goals:
+    - Keep generation deterministic-ish by forcing JSON-only output format.
+    - Validate/normalize model output before returning to API clients.
+    - Protect prompt size by truncating source text.
+    """
+
     def __init__(self) -> None:
         self._model = settings.ollama_model
         self._client = ollama.Client(host=settings.ollama_base_url)
@@ -22,6 +31,13 @@ class FlashcardService:
         prompt: str,
         count: int = 12,
     ) -> GenerateFlashcardsResponse:
+        """
+        Create a flashcard deck from an uploaded document.
+
+        Raises:
+        - 400 if source document has no extracted text
+        - 502 if Ollama call fails or returns invalid structure
+        """
         source_text = get_document_service().get_extracted_text(document_id).strip()
         if not source_text:
             raise HTTPException(
@@ -101,6 +117,13 @@ class FlashcardService:
         )
 
     def _extract_json(self, raw: str) -> dict:
+        """
+        Parse model output into a dict.
+
+        Handles both:
+        - pure JSON output
+        - wrapped output with extra prose around a JSON block
+        """
         text = (raw or "").strip()
         if not text:
             return {}
