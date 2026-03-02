@@ -1,5 +1,6 @@
 from pathlib import Path
 from datetime import datetime, timedelta
+import re
 from uuid import uuid4
 
 import fitz  # PyMuPDF — to extract text and convert PDF pages to images
@@ -151,6 +152,111 @@ class DocumentService:
                 detail="Document not found.",
             )
         return self._documents[document_id].extracted_text
+
+    def generate_flashcards(self, document_id: str, prompt: str, count: int) -> list[tuple[str, str]]:
+        """
+        Generate flashcards using the loaded transformer model (Donut) and
+        fallback text heuristics from extracted document text.
+        """
+        self._cleanup_expired_documents()
+        if document_id not in self._documents:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Document not found.",
+            )
+
+        document = self._documents[document_id]
+        if not document.extracted_text.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Document has no extracted text to generate flashcards from.",
+            )
+
+        cards: list[tuple[str, str]] = []
+        seen_pairs: set[tuple[str, str]] = set()
+
+        question_templates = self._flashcard_prompts(prompt)
+        max_attempts = min(max(count * 4, 12), 80)
+        attempts = 0
+
+        # Primary strategy: use Donut page VQA outputs as answers.
+        for page in range(1, document.page_count + 1):
+            image = self._page_images.get(f"{document_id}_{page}")
+            if image is None:
+                continue
+
+            for template in question_templates:
+                if attempts >= max_attempts or len(cards) >= count:
+                    break
+
+                attempts += 1
+                answer, _ = self._run_donut(image, template)
+                answer = self._clean_flashcard_text(answer, max_len=300)
+                if len(answer) < 8:
+                    continue
+
+                question = self._clean_flashcard_text(template, max_len=200)
+                pair = (question, answer)
+                if pair in seen_pairs:
+                    continue
+
+                seen_pairs.add(pair)
+                cards.append(pair)
+
+            if len(cards) >= count:
+                break
+
+        # Fallback strategy: derive cloze-style cards from extracted sentences.
+        if len(cards) < count:
+            for question, answer in self._fallback_sentence_cards(document.extracted_text):
+                if len(cards) >= count:
+                    break
+                pair = (
+                    self._clean_flashcard_text(question, max_len=200),
+                    self._clean_flashcard_text(answer, max_len=300),
+                )
+                if pair in seen_pairs or len(pair[1]) < 2:
+                    continue
+                seen_pairs.add(pair)
+                cards.append(pair)
+
+        return cards[:count]
+
+    def _flashcard_prompts(self, user_prompt: str) -> list[str]:
+        prompt_hint = user_prompt.strip()[:120]
+        return [
+            f"Based on this page, {prompt_hint}",
+            "What is one important concept from this page?",
+            "What key definition appears on this page?",
+            "What important fact should a student remember from this page?",
+            "What is one likely exam point from this page?",
+        ]
+
+    def _fallback_sentence_cards(self, text: str) -> list[tuple[str, str]]:
+        cleaned = re.sub(r"\s+", " ", text).strip()
+        if not cleaned:
+            return []
+
+        sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", cleaned) if s.strip()]
+        candidates = [s for s in sentences if 40 <= len(s) <= 220]
+
+        cards: list[tuple[str, str]] = []
+        for sentence in candidates:
+            words = re.findall(r"[A-Za-z][A-Za-z0-9\-]{4,}", sentence)
+            if not words:
+                continue
+            keyword = max(words, key=len)
+            cloze = re.sub(rf"\b{re.escape(keyword)}\b", "_____", sentence, count=1)
+            if cloze == sentence:
+                continue
+            cards.append((f"Fill in the blank: {cloze}", keyword))
+            if len(cards) >= 50:
+                break
+        return cards
+
+    def _clean_flashcard_text(self, value: str, max_len: int) -> str:
+        text = re.sub(r"\s+", " ", (value or "")).strip()
+        return text[:max_len]
 
     def _evict_if_needed(self) -> None:
         while len(self._documents) >= MAX_STORED_DOCUMENTS:

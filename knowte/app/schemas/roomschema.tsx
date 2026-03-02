@@ -2,12 +2,14 @@ import { z } from "zod";
 
 export const roomResponseSchema = z.object({
   id: z.string().uuid(),
+  r_code: z.string(),
   r_name: z.string(),
   r_tags: z.array(z.string()),
   r_description: z.string(),
   r_is_private: z.boolean(),
   r_max_members: z.number().int().min(1).max(100),
   r_owner_id: z.string(),
+  r_members: z.array(z.string()),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -38,8 +40,46 @@ export const deleteRoomResponseSchema = z.object({
   deleted: z.boolean(),
 });
 
+export const joinRoomResponseSchema = z.object({
+  room_id: z.string().uuid(),
+  user_id: z.string(),
+  joined_at: z.string(),
+});
+
+export const sendRoomChatMessageRequestSchema = z.object({
+  message: z.string().min(1).max(4000),
+});
+
+export const roomChatMessageResponseSchema = z.object({
+  id: z.string().uuid(),
+  room_id: z.string().uuid(),
+  user_id: z.string(),
+  message: z.string(),
+  created_at: z.string(),
+});
+
+export const roomChatListResponseSchema = z.object({
+  items: z.array(roomChatMessageResponseSchema),
+});
+
+export const roomChatStreamEventSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("chat_message"),
+    data: roomChatMessageResponseSchema,
+  }),
+  z.object({
+    type: z.literal("error"),
+    detail: z.string(),
+  }),
+]);
+
 export type RoomResponse = z.infer<typeof roomResponseSchema>;
 export type CreateRoomRequest = z.infer<typeof createRoomRequestSchema>;
 export type UpdateRoomRequest = z.infer<typeof updateRoomRequestSchema>;
 export type RoomListResponse = z.infer<typeof roomListResponseSchema>;
 export type DeleteRoomResponse = z.infer<typeof deleteRoomResponseSchema>;
+export type JoinRoomResponse = z.infer<typeof joinRoomResponseSchema>;
+export type SendRoomChatMessageRequest = z.infer<typeof sendRoomChatMessageRequestSchema>;
+export type RoomChatMessageResponse = z.infer<typeof roomChatMessageResponseSchema>;
+export type RoomChatListResponse = z.infer<typeof roomChatListResponseSchema>;
+export type RoomChatStreamEvent = z.infer<typeof roomChatStreamEventSchema>;

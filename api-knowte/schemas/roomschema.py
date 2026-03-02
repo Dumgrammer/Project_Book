@@ -6,12 +6,14 @@ from datetime import datetime
 
 class RoomResponse(BaseModel):
     id: UUID
+    r_code: str
     r_name: str
     r_tags: list[str]
     r_description: str
     r_is_private: bool
     r_max_members: int
     r_owner_id: str
+    r_members: list[str]
     created_at: datetime
     updated_at: datetime
 
@@ -44,3 +46,29 @@ class RoomListResponse(BaseModel):
 class DeleteRoomResponse(BaseModel):
     id: UUID
     deleted: bool
+
+
+class JoinRoomResponse(BaseModel):
+    room_id: UUID
+    user_id: str
+    joined_at: datetime
+
+
+class JoinRoomByCodeRequest(BaseModel):
+    r_code: str = Field(min_length=4, max_length=32)
+
+
+class RoomChatMessageResponse(BaseModel):
+    id: UUID
+    room_id: UUID
+    user_id: str
+    message: str
+    created_at: datetime
+
+
+class SendRoomChatMessageRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=4000)
+
+
+class RoomChatListResponse(BaseModel):
+    items: list[RoomChatMessageResponse]

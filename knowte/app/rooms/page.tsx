@@ -8,36 +8,52 @@ import InputAdornment from "@mui/material/InputAdornment";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
+import Tabs from "@mui/material/Tabs";
+import Tab from "@mui/material/Tab";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
+import PersonRoundedIcon from "@mui/icons-material/PersonRounded";
+import PublicRoundedIcon from "@mui/icons-material/PublicRounded";
 import {
   useCreateRoom,
   useDeleteRoom,
+  useJoinRoom,
   useRooms,
   useUpdateRoom,
 } from "../hooks/rooms";
+import { useCurrentUser } from "../hooks/auth";
 import type { RoomResponse, UpdateRoomRequest } from "../models/roommodel";
 import RoomCard from "./components/RoomCard";
 import CreateRoomDialog from "./components/CreateRoomDialog";
 import EditRoomDialog from "./components/EditRoomDialog";
 import JoinRoomDialog from "./components/JoinRoomDialog";
 
+type RoomTab = "all" | "mine";
+
 export default function RoomsPage() {
   const [search, setSearch] = useState("");
+  const [activeTab, setActiveTab] = useState<RoomTab>("all");
   const [joinDialogOpen, setJoinDialogOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState<RoomResponse | null>(null);
 
+  const { data: currentUser } = useCurrentUser();
   const roomsQuery = useRooms();
   const createRoom = useCreateRoom();
   const updateRoom = useUpdateRoom();
   const deleteRoom = useDeleteRoom();
+  const joinRoom = useJoinRoom();
 
   const filtered = useMemo(() => {
     const rooms = roomsQuery.data?.items ?? [];
     return rooms.filter((room: RoomResponse) => {
+      // Tab filter
+      if (activeTab === "mine" && currentUser) {
+        if (room.r_owner_id !== currentUser.id) return false;
+      }
+      // Search filter
       const q = search.toLowerCase();
       return (
         room.r_name.toLowerCase().includes(q) ||
@@ -45,7 +61,7 @@ export default function RoomsPage() {
         room.r_tags.some((tag) => tag.toLowerCase().includes(q))
       );
     });
-  }, [roomsQuery.data?.items, search]);
+  }, [roomsQuery.data?.items, search, activeTab, currentUser]);
 
   async function handleCreate(payload: Parameters<typeof createRoom.mutateAsync>[0]) {
     await createRoom.mutateAsync(payload);
@@ -70,7 +86,7 @@ export default function RoomsPage() {
   }
 
   const actionError =
-    createRoom.error?.message || updateRoom.error?.message || deleteRoom.error?.message || null;
+    createRoom.error?.message || updateRoom.error?.message || deleteRoom.error?.message || joinRoom.error?.message || null;
 
   return (
     <Box sx={{ maxWidth: 1200, px: 4, py: 4 }}>
@@ -94,6 +110,42 @@ export default function RoomsPage() {
           {actionError}
         </Alert>
       )}
+
+      {/* Tab navigation */}
+      <Box sx={{ mb: 2.5 }}>
+        <Tabs
+          value={activeTab}
+          onChange={(_, v: RoomTab) => setActiveTab(v)}
+          sx={{
+            minHeight: 40,
+            "& .MuiTab-root": {
+              minHeight: 40,
+              fontSize: 14,
+              fontWeight: 600,
+              textTransform: "none",
+              px: 2,
+            },
+            "& .MuiTabs-indicator": {
+              height: 3,
+              borderRadius: "3px 3px 0 0",
+              bgcolor: "#6366f1",
+            },
+          }}
+        >
+          <Tab
+            value="all"
+            label="All Rooms"
+            icon={<PublicRoundedIcon sx={{ fontSize: 18 }} />}
+            iconPosition="start"
+          />
+          <Tab
+            value="mine"
+            label="My Rooms"
+            icon={<PersonRoundedIcon sx={{ fontSize: 18 }} />}
+            iconPosition="start"
+          />
+        </Tabs>
+      </Box>
 
       {/* Search + actions */}
       <Box sx={{ display: "flex", gap: 1.5, mb: 3, flexWrap: "wrap" }}>
@@ -152,10 +204,12 @@ export default function RoomsPage() {
         <Box sx={{ textAlign: "center", py: 8 }}>
           <GroupsRoundedIcon sx={{ fontSize: 64, color: "#e2e8f0", mb: 2 }} />
           <Typography sx={{ fontSize: 16, fontWeight: 600, color: "text.secondary" }}>
-            No rooms found
+            {activeTab === "mine" ? "You haven\u2019t created any rooms yet" : "No rooms found"}
           </Typography>
           <Typography sx={{ fontSize: 14, color: "text.disabled", mt: 0.5 }}>
-            Try a different search or create a new room.
+            {activeTab === "mine"
+              ? "Create a room to start collaborating."
+              : "Try a different search or create a new room."}
           </Typography>
         </Box>
       )}

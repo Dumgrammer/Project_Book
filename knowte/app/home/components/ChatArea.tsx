@@ -23,6 +23,7 @@ import { useAgentStream } from "../../hooks/agent";
 import { useDocumentText, useDocumentUpload } from "../../hooks/document";
 import { api } from "../../lib/api";
 import { documentTextResponseSchema } from "../../schemas/documentschema";
+import FlashcardPanel from "./FlashcardPanel";
 
 interface Suggestion {
   label: string;
@@ -73,6 +74,8 @@ export default function ChatArea() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadedFilename, setUploadedFilename] = useState<string | null>(null);
   const [uiError, setUiError] = useState<string | null>(null);
+  const [flashcardOpen, setFlashcardOpen] = useState(false);
+  const [flashcardPrompt, setFlashcardPrompt] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const listEndRef = useRef<HTMLDivElement>(null);
@@ -91,13 +94,7 @@ export default function ChatArea() {
     const text = seed ? buildSuggestionPrompt(rawText) : rawText;
     const isFlashcardAction = !!seed && rawText === FLASHCARD_LABEL;
     if (!text || isStreaming) return;
-    const popup = isFlashcardAction ? window.open("/flashcard", "_blank") : null;
-    if (isFlashcardAction && !popup) {
-      setUiError("Please allow pop-ups to open the flashcard tab.");
-      return;
-    }
     if (seed && !selectedFile && !documentId) {
-      if (popup) popup.close();
       setUiError("Upload a PDF first so I can use your document for this task.");
       return;
     }
@@ -132,13 +129,8 @@ export default function ChatArea() {
         if (!nextDocumentId) {
           throw new Error("No uploaded document available for flashcard generation.");
         }
-        const flashcardUrl =
-          `/flashcard?documentId=${encodeURIComponent(nextDocumentId)}` +
-          `&prompt=${encodeURIComponent(text)}&count=12`;
-
-        if (popup) {
-          popup.location.href = flashcardUrl;
-        }
+        setFlashcardPrompt(text);
+        setFlashcardOpen(true);
         setMessages((prev) => {
           if (prev.length === 0) return prev;
           const next = [...prev];
@@ -146,7 +138,7 @@ export default function ChatArea() {
           if (last.role === "assistant" && !last.content) {
             next[next.length - 1] = {
               role: "assistant",
-              content: "Opened flashcards in a new tab.",
+              content: "Generating flashcards — check the panel on the right.",
             };
           }
           return next;
@@ -171,7 +163,6 @@ export default function ChatArea() {
         return next;
       });
     } catch (err) {
-      if (popup) popup.close();
       setUiError(err instanceof Error ? err.message : "Failed to send message.");
       setMessages((prev) => {
         if (prev.length === 0) return prev;
@@ -459,6 +450,14 @@ export default function ChatArea() {
         type="file"
         accept="application/pdf,.pdf"
         onChange={handleFileChange}
+      />
+
+      <FlashcardPanel
+        open={flashcardOpen}
+        onClose={() => setFlashcardOpen(false)}
+        documentId={documentId}
+        prompt={flashcardPrompt}
+        count={12}
       />
     </Box>
   );

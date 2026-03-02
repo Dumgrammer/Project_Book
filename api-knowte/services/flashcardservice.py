@@ -1,29 +1,21 @@
-import json
-
-import ollama
 from fastapi import HTTPException, status
 
-from config import settings
 from models.flashcardmodel import FlashcardDeck, FlashcardItem as FlashcardItemModel
 from schemas.flashcardschema import FlashcardItem, GenerateFlashcardsResponse
-from services.documentservice import get_document_service
-
-MAX_SOURCE_TEXT_CHARS = 12_000
+from services.documentservice import MODEL_NAME, get_document_service
 
 
 class FlashcardService:
     """
-    Generates flashcards from document text using the configured Ollama model.
+    Generates flashcards from document data via transformer-backed DocumentService.
 
     Design goals:
-    - Keep generation deterministic-ish by forcing JSON-only output format.
-    - Validate/normalize model output before returning to API clients.
-    - Protect prompt size by truncating source text.
+    - Reuse the already-loaded transformer pipeline from DocumentService.
+    - Normalize output before returning to API clients.
     """
 
     def __init__(self) -> None:
-        self._model = settings.ollama_model
-        self._client = ollama.Client(host=settings.ollama_base_url)
+        self._model = MODEL_NAME
 
     def generate_flashcards(
         self,
@@ -36,61 +28,34 @@ class FlashcardService:
 
         Raises:
         - 400 if source document has no extracted text
-        - 502 if Ollama call fails or returns invalid structure
+        - 502 if no usable flashcards can be produced
         """
-        source_text = get_document_service().get_extracted_text(document_id).strip()
-        if not source_text:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Document has no extracted text to generate flashcards from.",
-            )
-
-        system_prompt = (
-            "You are Knowte AI. Create concise study flashcards from the source text. "
-            "Return JSON only with this exact structure: "
-            '{"flashcards":[{"question":"...","answer":"..."}]}. '
-            "Do not include markdown or any extra keys."
-        )
-        user_prompt = (
-            f"Instructions: {prompt}\n"
-            f"Create exactly {count} flashcards.\n"
-            "Question should be clear and answer should be direct.\n\n"
-            f"Source text:\n{source_text[:MAX_SOURCE_TEXT_CHARS]}"
-        )
-
         try:
-            response = self._client.chat(
-                model=self._model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
+            raw_flashcards = get_document_service().generate_flashcards(
+                document_id=document_id,
+                prompt=prompt,
+                count=count,
             )
-        except ollama.ResponseError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"Ollama error: {exc.error}",
-            ) from exc
+        except HTTPException:
+            raise
         except Exception as exc:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"Cannot reach Ollama: {exc}",
+                detail=f"Flashcard generation failed: {exc}",
             ) from exc
-
-        payload = self._extract_json(response.message.content)
-        raw_flashcards = payload.get("flashcards")
-        if not isinstance(raw_flashcards, list):
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Model response did not contain a valid flashcards array.",
-            )
 
         flashcards: list[FlashcardItemModel] = []
         for item in raw_flashcards:
-            if not isinstance(item, dict):
+            if isinstance(item, tuple) and len(item) == 2:
+                question_raw, answer_raw = item
+            elif isinstance(item, dict):
+                question_raw = item.get("question", "")
+                answer_raw = item.get("answer", "")
+            else:
                 continue
-            question = str(item.get("question", "")).strip()
-            answer = str(item.get("answer", "")).strip()
+
+            question = str(question_raw).strip()
+            answer = str(answer_raw).strip()
             if not question or not answer:
                 continue
             flashcards.append(FlashcardItemModel(question=question[:200], answer=answer[:300]))
@@ -115,32 +80,6 @@ class FlashcardService:
             flashcards=[FlashcardItem(question=fc.question, answer=fc.answer) for fc in deck.flashcards],
             model=deck.model,
         )
-
-    def _extract_json(self, raw: str) -> dict:
-        """
-        Parse model output into a dict.
-
-        Handles both:
-        - pure JSON output
-        - wrapped output with extra prose around a JSON block
-        """
-        text = (raw or "").strip()
-        if not text:
-            return {}
-
-        try:
-            parsed = json.loads(text)
-            return parsed if isinstance(parsed, dict) else {}
-        except json.JSONDecodeError:
-            start = text.find("{")
-            end = text.rfind("}")
-            if start == -1 or end <= start:
-                return {}
-            try:
-                parsed = json.loads(text[start : end + 1])
-                return parsed if isinstance(parsed, dict) else {}
-            except json.JSONDecodeError:
-                return {}
 
 
 _flashcard_service = FlashcardService()

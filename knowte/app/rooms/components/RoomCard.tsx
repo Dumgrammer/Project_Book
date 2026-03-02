@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Chip from "@mui/material/Chip";
@@ -15,6 +16,7 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Divider from "@mui/material/Divider";
 import LinearProgress from "@mui/material/LinearProgress";
+import CircularProgress from "@mui/material/CircularProgress";
 import LockRoundedIcon from "@mui/icons-material/LockRounded";
 import PublicRoundedIcon from "@mui/icons-material/PublicRounded";
 
@@ -23,6 +25,8 @@ import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
 import PersonRoundedIcon from "@mui/icons-material/PersonRounded";
 import type { RoomResponse } from "../../models/roommodel";
+import { useJoinRoom } from "../../hooks/rooms";
+import { useCurrentUser } from "../../hooks/auth";
 
 const avatarColors = [
   "#6366f1",
@@ -53,11 +57,19 @@ interface RoomCardProps {
 export default function RoomCard({ room, onEdit, onDelete }: RoomCardProps) {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const menuOpen = Boolean(anchorEl);
+  const joinRoom = useJoinRoom();
+  const { data: currentUser } = useCurrentUser();
+  const router = useRouter();
 
-  const memberCount = 1;
+  const memberCount = room.r_members.length;
   const capacityPercent = (memberCount / room.r_max_members) * 100;
   const isFull = memberCount >= room.r_max_members;
   const avatarLetters = getInitials(room.r_name);
+  const isOwner = currentUser?.id === room.r_owner_id;
+  const isMember = useMemo(() => {
+    if (!currentUser?.id) return false;
+    return isOwner || room.r_members.includes(currentUser.id);
+  }, [currentUser?.id, isOwner, room.r_members]);
 
   return (
     <Card
@@ -279,9 +291,22 @@ export default function RoomCard({ room, onEdit, onDelete }: RoomCardProps) {
 
           <Button
             variant={isFull ? "outlined" : "contained"}
-            disabled={isFull}
+            disabled={(isFull && !isMember) || joinRoom.isPending}
             size="small"
             disableElevation
+            onClick={async () => {
+              if (isMember) {
+                router.push(`/rooms/${room.id}`);
+                return;
+              }
+
+              try {
+                await joinRoom.mutateAsync(room.id);
+                router.push(`/rooms/${room.id}`);
+              } catch {
+                // error handled by mutation state
+              }
+            }}
             sx={{
               fontSize: 13,
               fontWeight: 600,
@@ -296,7 +321,17 @@ export default function RoomCard({ room, onEdit, onDelete }: RoomCardProps) {
                   }),
             }}
           >
-            {isFull ? "Full" : room.r_is_private ? "Request Access" : "Join Room"}
+            {joinRoom.isPending ? (
+              <CircularProgress size={16} sx={{ color: "#fff" }} />
+            ) : isMember ? (
+              "Hop In"
+            ) : isFull ? (
+              "Full"
+            ) : room.r_is_private ? (
+              "Request Access"
+            ) : (
+              "Join Room"
+            )}
           </Button>
         </Box>
       </Box>
