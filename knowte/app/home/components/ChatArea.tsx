@@ -24,6 +24,7 @@ import { useDocumentText, useDocumentUpload } from "../../hooks/document";
 import { api } from "../../lib/api";
 import { documentTextResponseSchema } from "../../schemas/documentschema";
 import FlashcardPanel from "./FlashcardPanel";
+import QuizPanel from "./QuizPanel";
 
 interface Suggestion {
   label: string;
@@ -40,6 +41,7 @@ const suggestions: Suggestion[] = [
 ];
 
 const FLASHCARD_LABEL = "Generate flashcards";
+const QUIZ_LABEL = "Create a quiz from my notes";
 
 function buildSuggestionPrompt(label: string): string {
   switch (label) {
@@ -76,6 +78,8 @@ export default function ChatArea() {
   const [uiError, setUiError] = useState<string | null>(null);
   const [flashcardOpen, setFlashcardOpen] = useState(false);
   const [flashcardPrompt, setFlashcardPrompt] = useState<string | null>(null);
+  const [quizOpen, setQuizOpen] = useState(false);
+  const [quizPrompt, setQuizPrompt] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const listEndRef = useRef<HTMLDivElement>(null);
@@ -93,6 +97,7 @@ export default function ChatArea() {
     const rawText = (seed ?? input).trim();
     const text = seed ? buildSuggestionPrompt(rawText) : rawText;
     const isFlashcardAction = !!seed && rawText === FLASHCARD_LABEL;
+    const isQuizAction = !!seed && rawText === QUIZ_LABEL;
     if (!text || isStreaming) return;
     if (seed && !selectedFile && !documentId) {
       setUiError("Upload a PDF first so I can use your document for this task.");
@@ -139,6 +144,27 @@ export default function ChatArea() {
             next[next.length - 1] = {
               role: "assistant",
               content: "Generating flashcards — check the panel on the right.",
+            };
+          }
+          return next;
+        });
+        return;
+      }
+
+      if (isQuizAction) {
+        if (!nextDocumentId) {
+          throw new Error("No uploaded document available for quiz generation.");
+        }
+        setQuizPrompt(text);
+        setQuizOpen(true);
+        setMessages((prev) => {
+          if (prev.length === 0) return prev;
+          const next = [...prev];
+          const last = next[next.length - 1];
+          if (last.role === "assistant" && !last.content) {
+            next[next.length - 1] = {
+              role: "assistant",
+              content: "Generating quiz — check the panel on the right.",
             };
           }
           return next;
@@ -458,6 +484,14 @@ export default function ChatArea() {
         documentId={documentId}
         prompt={flashcardPrompt}
         count={12}
+      />
+
+      <QuizPanel
+        open={quizOpen}
+        onClose={() => setQuizOpen(false)}
+        documentId={documentId}
+        prompt={quizPrompt}
+        count={10}
       />
     </Box>
   );

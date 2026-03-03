@@ -56,6 +56,7 @@ class Settings:
     supabase_service_role_key: str | None
     ollama_base_url: str
     ollama_model: str
+    qwen_model: str
 
 
 def load_settings() -> Settings:
@@ -77,6 +78,7 @@ def load_settings() -> Settings:
         supabase_service_role_key=os.getenv("SUPABASE_SERVICE_ROLE_KEY"),
         ollama_base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
         ollama_model=os.getenv("OLLAMA_MODEL", "phi3"),
+        qwen_model=os.getenv("QWEN_MODEL", "qwen3.5:4b"),
     )
 
 

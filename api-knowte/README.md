@@ -16,6 +16,7 @@ FastAPI backend for authentication, chat with `phi3` via Ollama, and document QA
 - Firebase Authentication with `Email/Password` enabled
 - Ollama installed locally (`ollama serve`)
 - `phi3` model pulled in Ollama (`ollama pull phi3`)
+- `qwen3.5:4b` model pulled in Ollama (`ollama pull qwen3.5:4b`)
 
 ## Environment Variables
 
@@ -55,6 +56,7 @@ For Ollama (run in another terminal):
 ```bash
 ollama serve
 ollama pull phi3
+ollama pull qwen3.5:4b
 ```
 
 ---
@@ -225,6 +227,53 @@ This endpoint depends on:
     }
   ],
   "model": "phi3"
+}
+```
+
+**Common Errors**
+
+- `400`: document has no extracted text
+- `502`: Ollama unavailable or invalid model output
+
+---
+
+### `POST /api/v1/quiz/generate`
+
+Generate multiple-choice quiz questions from an uploaded document's extracted text.
+
+This endpoint uses Ollama model `qwen3.5:4b`.
+
+**Request Body (JSON)**
+
+```json
+{
+  "document_id": "uuid-from-upload",
+  "prompt": "Focus on key concepts and likely exam questions.",
+  "count": 10
+}
+```
+
+**Validation**
+
+- `document_id`: required
+- `prompt`: 1-4096 chars
+- `count`: min `3`, max `20`, default `10`
+
+**Response 200**
+
+```json
+{
+  "document_id": "uuid-from-upload",
+  "prompt": "Focus on key concepts and likely exam questions.",
+  "questions": [
+    {
+      "question": "Which process converts light energy into chemical energy?",
+      "options": ["Respiration", "Photosynthesis", "Diffusion", "Transpiration"],
+      "answer": "Photosynthesis",
+      "explanation": "Photosynthesis in plants converts light energy into chemical energy."
+    }
+  ],
+  "model": "qwen3.5:4b"
 }
 ```
 
