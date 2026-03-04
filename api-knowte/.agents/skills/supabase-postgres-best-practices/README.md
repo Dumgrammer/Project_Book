@@ -113,4 +113,20 @@ See `references/_contributing.md` for detailed guidelines. Key principles:
 | MEDIUM | 1.5-3x | Redundant indexes, stale statistics |
 | LOW-MEDIUM | 1.2-2x | VACUUM tuning, config tweaks |
 | LOW | Incremental | Advanced patterns, edge cases |
+
+## Validation checklist
+
+Before opening a PR for new references:
+
+1. `npm run validate` passes with no schema/content errors.
+2. `npm run build` regenerates `AGENTS.md` without failures.
+3. SQL snippets are self-contained and copy-paste runnable.
+4. Impact level matches the quantified claim in `impactDescription`.
+
+## Quality bar for references
+
+- Keep each reference focused on one optimization pattern.
+- Include a measurable before/after expectation when possible.
+- Avoid vendor-agnostic advice when Supabase/Postgres specifics matter.
+- Prefer deterministic examples over hypothetical pseudo-SQL.
 ```

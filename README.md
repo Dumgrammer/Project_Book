@@ -114,3 +114,37 @@ Stopping backend process clears memory maps; files on disk remain unless deleted
    - stream + stop behavior.
 4. Tune prompts, limits, and UI behavior.
 5. Add DB persistence later when ready (users, chats, documents).
+
+---
+
+## Useful workspace commands
+
+Run from repository root (`Project_Book`):
+
+```bash
+# backend
+cd api-knowte
+uvicorn app:app --reload --host 127.0.0.1 --port 8000
+
+# frontend
+cd knowte
+npm run dev
+```
+
+## Troubleshooting
+
+- `401 Unauthorized` on frontend calls:
+   - check login flow succeeds,
+   - verify auth token exists in cookies,
+   - confirm backend `AUTH_SECRET_KEY` and token settings are consistent.
+- `500` or AI timeout during chat/quiz/flashcards:
+   - ensure `ollama serve` is running,
+   - verify required models are pulled (`phi3`, `qwen3.5:4b`).
+- CORS issues in browser console:
+   - update `CORS_ORIGINS` in backend `.env` to include frontend origin.
+
+## Contributing
+
+1. Keep API schemas and frontend Zod schemas aligned.
+2. Update the nearest package README when adding or changing endpoints.
+3. Prefer small, focused pull requests grouped by feature (`auth`, `agent`, `document`, `flashcard`, `quiz`, `room`).

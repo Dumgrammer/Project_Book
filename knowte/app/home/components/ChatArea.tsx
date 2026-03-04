@@ -523,51 +523,66 @@ export default function ChatArea() {
         onChange={handleFileChange}
       />
 
-      <Box
-        sx={{
-          position: "fixed",
-          right: 20,
-          top: "50%",
-          transform: "translateY(-50%)",
-          zIndex: 1300,
-          display: "flex",
-          flexDirection: "column",
-          gap: 1,
-        }}
-      >
-        <Button
-          variant="contained"
-          size="small"
-          startIcon={<StyleRoundedIcon sx={{ fontSize: 16 }} />}
-          onClick={handleOpenFlashcards}
+      {/* Transparent toggle buttons — hidden when respective panel is open */}
+      {!flashcardOpen && !quizOpen && (
+        <Box
           sx={{
-            textTransform: "none",
-            fontSize: 12,
-            fontWeight: 700,
-            borderRadius: 2,
-            bgcolor: "#6366f1",
-            "&:hover": { bgcolor: "#4f46e5" },
+            position: "fixed",
+            right: 20,
+            top: "50%",
+            transform: "translateY(-50%)",
+            zIndex: 1300,
+            display: "flex",
+            flexDirection: "column",
+            gap: 1,
           }}
         >
-          Flashcards
-        </Button>
-        <Button
-          variant="contained"
-          size="small"
-          startIcon={<QuizRoundedIcon sx={{ fontSize: 16 }} />}
-          onClick={handleOpenQuiz}
-          sx={{
-            textTransform: "none",
-            fontSize: 12,
-            fontWeight: 700,
-            borderRadius: 2,
-            bgcolor: "#0ea5e9",
-            "&:hover": { bgcolor: "#0284c7" },
-          }}
-        >
-          Quiz
-        </Button>
-      </Box>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<StyleRoundedIcon sx={{ fontSize: 16 }} />}
+            onClick={handleOpenFlashcards}
+            sx={{
+              textTransform: "none",
+              fontSize: 12,
+              fontWeight: 600,
+              borderRadius: 2,
+              color: "#6366f1",
+              borderColor: "rgba(99,102,241,0.4)",
+              backdropFilter: "blur(8px)",
+              backgroundColor: "rgba(99,102,241,0.06)",
+              "&:hover": {
+                borderColor: "#6366f1",
+                backgroundColor: "rgba(99,102,241,0.12)",
+              },
+            }}
+          >
+            Flashcards
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<QuizRoundedIcon sx={{ fontSize: 16 }} />}
+            onClick={handleOpenQuiz}
+            sx={{
+              textTransform: "none",
+              fontSize: 12,
+              fontWeight: 600,
+              borderRadius: 2,
+              color: "#0ea5e9",
+              borderColor: "rgba(14,165,233,0.4)",
+              backdropFilter: "blur(8px)",
+              backgroundColor: "rgba(14,165,233,0.06)",
+              "&:hover": {
+                borderColor: "#0ea5e9",
+                backgroundColor: "rgba(14,165,233,0.12)",
+              },
+            }}
+          >
+            Quiz
+          </Button>
+        </Box>
+      )}
 
       <FlashcardPanel
         open={flashcardOpen}

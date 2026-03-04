@@ -139,3 +139,32 @@ User submits sign-in form
 | `npm run build` | Production build |
 | `npm run start` | Serve production build |
 | `npm run lint` | Run ESLint |
+
+## Local verification checklist
+
+1. Sign in using a valid account and confirm redirect to `/home`.
+2. Send a chat message without a file and verify assistant reply appears.
+3. Upload a PDF and send a follow-up question.
+4. Confirm streaming output renders incrementally in chat.
+5. Generate flashcards from an uploaded document.
+
+## Troubleshooting
+
+- Requests fail with `Network Error`:
+  - verify backend is running,
+  - confirm `NEXT_PUBLIC_API_URL` is correct in `.env.local`.
+- Frequent `401` responses:
+  - check token cookie presence,
+  - ensure auth response schema still matches backend fields.
+- Chat stream not updating:
+  - inspect browser console for SSE/request errors,
+  - validate backend stream endpoint is returning `text/event-stream` chunks.
+
+## Contribution notes
+
+1. Keep Zod schemas, model types, and hook payloads aligned.
+2. If backend contracts change, update:
+   - `app/schemas/*`
+   - `app/models/*`
+   - related `app/hooks/*`
+3. Prefer colocating feature-specific UI under its route folder (`signin`, `register`, `home`, `flashcard`, `rooms`).

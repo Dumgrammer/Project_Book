@@ -546,3 +546,36 @@ The current AI/document layers are intentionally in-memory.
 
 Stopping the API process clears in-memory maps. Files under `uploads/` remain unless cleaned.
 
+---
+
+## Local verification checklist
+
+After starting services, verify in this order:
+
+1. `GET /health` returns `{"status":"ok"}`.
+2. `POST /api/v1/auth/register` and `POST /api/v1/auth/login` return a valid token payload.
+3. `POST /api/v1/document/upload` accepts a PDF and returns `document_id`.
+4. `POST /api/v1/agent/chat` returns a full reply.
+5. `POST /api/v1/agent/chat/stream` emits `delta` chunks and finishes with `done: true`.
+
+## Troubleshooting
+
+- `firebase_admin` initialization errors:
+  - confirm `FIREBASE_CREDENTIALS_PATH` points to a valid service account JSON,
+  - verify `FIREBASE_PROJECT_ID` and API key belong to the same Firebase project.
+- `502` from AI endpoints:
+  - ensure Ollama is reachable at `OLLAMA_BASE_URL`,
+  - confirm required model tags exist locally (`ollama list`).
+- PDF parsing or DocVQA failures:
+  - test with a small text-based PDF first,
+  - confirm write access to `api-knowte/uploads/`.
+
+## Documentation maintenance
+
+When adding/changing endpoints:
+
+1. Update route handler docs and request/response schemas.
+2. Add or adjust the endpoint section in this README.
+3. Keep frontend hook docs in `knowte/README.md` synchronized.
+
+
