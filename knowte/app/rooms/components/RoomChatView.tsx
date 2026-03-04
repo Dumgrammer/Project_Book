@@ -45,6 +45,31 @@ function formatTime(iso: string): string {
   }
 }
 
+function resolveDisplayName(
+  userId: string,
+  currentUserId?: string,
+  currentUserFullName?: string | null,
+  currentUserEmail?: string,
+): string {
+  if (currentUserId && userId === currentUserId) {
+    const fullName = currentUserFullName?.trim();
+    if (fullName) return fullName;
+    if (currentUserEmail) return currentUserEmail.split("@")[0] || "You";
+    return "You";
+  }
+  return "Member";
+}
+
+function initialsFromName(value: string): string {
+  const parts = value
+    .split(/\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length === 0) return "M";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+}
+
 interface RoomChatViewProps {
   roomId: string;
 }
@@ -154,8 +179,6 @@ export default function RoomChatView({ roomId }: RoomChatViewProps) {
     };
 
     reconnectAttemptsRef.current = 0;
-    setIsWsConnected(false);
-    setWsError(null);
     connect();
 
     return () => {
@@ -163,7 +186,6 @@ export default function RoomChatView({ roomId }: RoomChatViewProps) {
       clearReconnectTimer();
       wsRef.current?.close();
       wsRef.current = null;
-      setIsWsConnected(false);
     };
   }, [roomId]);
 
@@ -208,6 +230,8 @@ export default function RoomChatView({ roomId }: RoomChatViewProps) {
   ];
 
   const currentUserId = user?.id;
+  const currentUserName = user?.full_name ?? null;
+  const currentUserEmail = user?.email;
 
   return (
     <Box
@@ -258,6 +282,12 @@ export default function RoomChatView({ roomId }: RoomChatViewProps) {
 
         {merged.map((msg) => {
           const isOwn = msg.user_id === currentUserId;
+          const displayName = resolveDisplayName(
+            msg.user_id,
+            currentUserId,
+            currentUserName,
+            currentUserEmail,
+          );
           return (
             <Box
               key={msg.id}
@@ -279,7 +309,7 @@ export default function RoomChatView({ roomId }: RoomChatViewProps) {
                     bgcolor: userColor(msg.user_id),
                   }}
                 >
-                  {msg.user_id.slice(0, 2).toUpperCase()}
+                  {initialsFromName(displayName)}
                 </Avatar>
               )}
               <Box
@@ -301,7 +331,7 @@ export default function RoomChatView({ roomId }: RoomChatViewProps) {
                       mb: 0.25,
                     }}
                   >
-                    {msg.user_id.slice(0, 8)}
+                    {displayName}
                   </Typography>
                 )}
                 <Typography sx={{ fontSize: 14, lineHeight: 1.5, wordBreak: "break-word" }}>

@@ -22,4 +22,5 @@ class AuthUser:
 class TokenPayload:
     sub: str
     email: str
+    f_name: str
     exp: int

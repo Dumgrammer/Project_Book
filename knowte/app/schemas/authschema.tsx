@@ -24,6 +24,7 @@ export const tokenResponseSchema = z.object({
 export const userResponseSchema = z.object({
   id: z.string(),
   email: z.string().email(),
+  f_name: z.string(),
   is_active: z.boolean(),
   full_name: z.string().nullable().optional(),
 });

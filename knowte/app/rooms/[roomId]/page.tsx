@@ -7,19 +7,27 @@ import IconButton from "@mui/material/IconButton";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
 import LockRoundedIcon from "@mui/icons-material/LockRounded";
 import PublicRoundedIcon from "@mui/icons-material/PublicRounded";
 import PersonRoundedIcon from "@mui/icons-material/PersonRounded";
-import { useRoom } from "../../hooks/rooms";
+import { useCurrentUser } from "../../hooks/auth";
+import { useApproveJoinRequest, useRoom } from "../../hooks/rooms";
 import RoomChatView from "../components/RoomChatView";
 
 export default function RoomDetailPage() {
   const params = useParams<{ roomId: string }>();
   const roomId = params.roomId;
   const router = useRouter();
+  const { data: currentUser } = useCurrentUser();
   const roomQuery = useRoom(roomId ?? null);
+  const approveJoinRequest = useApproveJoinRequest();
   const room = roomQuery.data;
+  const canApproveRequests = Boolean(
+    currentUser?.id && room && (room.r_owner_id === currentUser.id || room.r_co_admin_ids.includes(currentUser.id))
+  );
+  const pendingMemberIds = room?.r_pending_member_ids ?? [];
 
   if (!roomId) {
     return (
@@ -128,6 +136,50 @@ export default function RoomDetailPage() {
           </>
         ) : null}
       </Box>
+
+      {canApproveRequests && pendingMemberIds.length > 0 && (
+        <Box
+          sx={{
+            px: 3,
+            py: 1.5,
+            borderBottom: "1px solid",
+            borderColor: "divider",
+            bgcolor: "background.paper",
+          }}
+        >
+          <Typography sx={{ fontSize: 13, fontWeight: 700, mb: 1 }}>
+            Pending Join Requests
+          </Typography>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+            {pendingMemberIds.map((pendingUserId) => (
+              <Box
+                key={pendingUserId}
+                sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}
+              >
+                <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
+                  {pendingUserId}
+                </Typography>
+                <Button
+                  size="small"
+                  variant="contained"
+                  disabled={approveJoinRequest.isPending}
+                  onClick={() => {
+                    void approveJoinRequest.mutateAsync({ roomId, targetUserId: pendingUserId });
+                  }}
+                  sx={{ fontSize: 11, textTransform: "none" }}
+                >
+                  Approve
+                </Button>
+              </Box>
+            ))}
+          </Box>
+          {approveJoinRequest.isError && (
+            <Alert severity="error" sx={{ mt: 1 }}>
+              {approveJoinRequest.error.message}
+            </Alert>
+          )}
+        </Box>
+      )}
 
       {/* Chat body */}
       <Box sx={{ flex: 1, minHeight: 0 }}>

@@ -13,6 +13,8 @@ class Room:
     r_is_private: bool = False
     r_max_members: int = 8
     r_owner_id: str = ""
+    r_co_admin_ids: list[str] = field(default_factory=list)
     r_members: list[str] = field(default_factory=list)
+    r_pending_member_ids: list[str] = field(default_factory=list)
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)

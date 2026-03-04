@@ -17,16 +17,13 @@ import PersonRoundedIcon from "@mui/icons-material/PersonRounded";
 import PublicRoundedIcon from "@mui/icons-material/PublicRounded";
 import {
   useCreateRoom,
-  useDeleteRoom,
   useJoinRoom,
   useRooms,
-  useUpdateRoom,
 } from "../hooks/rooms";
 import { useCurrentUser } from "../hooks/auth";
-import type { RoomResponse, UpdateRoomRequest } from "../models/roommodel";
+import type { RoomFetchResponse } from "../models/roommodel";
 import RoomCard from "./components/RoomCard";
 import CreateRoomDialog from "./components/CreateRoomDialog";
-import EditRoomDialog from "./components/EditRoomDialog";
 import JoinRoomDialog from "./components/JoinRoomDialog";
 
 type RoomTab = "all" | "mine";
@@ -36,19 +33,15 @@ export default function RoomsPage() {
   const [activeTab, setActiveTab] = useState<RoomTab>("all");
   const [joinDialogOpen, setJoinDialogOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [editingRoom, setEditingRoom] = useState<RoomResponse | null>(null);
 
   const { data: currentUser } = useCurrentUser();
   const roomsQuery = useRooms();
   const createRoom = useCreateRoom();
-  const updateRoom = useUpdateRoom();
-  const deleteRoom = useDeleteRoom();
   const joinRoom = useJoinRoom();
 
   const filtered = useMemo(() => {
     const rooms = roomsQuery.data?.items ?? [];
-    return rooms.filter((room: RoomResponse) => {
+    return rooms.filter((room: RoomFetchResponse) => {
       // Tab filter
       if (activeTab === "mine" && currentUser) {
         if (room.r_owner_id !== currentUser.id) return false;
@@ -68,25 +61,8 @@ export default function RoomsPage() {
     setCreateDialogOpen(false);
   }
 
-  async function handleUpdate(roomId: string, payload: UpdateRoomRequest) {
-    await updateRoom.mutateAsync({ roomId, payload });
-    setEditingRoom(null);
-    setEditDialogOpen(false);
-  }
-
-  async function handleDelete(room: RoomResponse) {
-    const confirmed = window.confirm(`Delete room "${room.r_name}"?`);
-    if (!confirmed) return;
-    await deleteRoom.mutateAsync(room.id);
-  }
-
-  function openEdit(room: RoomResponse) {
-    setEditingRoom(room);
-    setEditDialogOpen(true);
-  }
-
   const actionError =
-    createRoom.error?.message || updateRoom.error?.message || deleteRoom.error?.message || joinRoom.error?.message || null;
+    createRoom.error?.message || joinRoom.error?.message || null;
 
   return (
     <Box sx={{ maxWidth: 1200, px: 4, py: 4 }}>
@@ -196,8 +172,12 @@ export default function RoomsPage() {
             gap: 2.5,
           }}
         >
-          {filtered.map((room: RoomResponse) => (
-            <RoomCard key={room.id} room={room} onEdit={openEdit} onDelete={handleDelete} />
+          {filtered.map((room: RoomFetchResponse, index: number) => (
+            <RoomCard
+              key={`${room.r_owner_id}-${room.r_name}-${index}`}
+              room={room}
+              onJoinRequest={() => setJoinDialogOpen(true)}
+            />
           ))}
         </Box>
       ) : (
@@ -220,13 +200,6 @@ export default function RoomsPage() {
         onClose={() => setCreateDialogOpen(false)}
         onSubmit={handleCreate}
         isPending={createRoom.isPending}
-      />
-      <EditRoomDialog
-        open={editDialogOpen}
-        room={editingRoom}
-        onClose={() => setEditDialogOpen(false)}
-        onSubmit={handleUpdate}
-        isPending={updateRoom.isPending}
       />
       <JoinRoomDialog
         open={joinDialogOpen}

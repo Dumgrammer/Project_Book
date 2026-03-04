@@ -11,6 +11,7 @@ from schemas.roomschema import (
 	DeleteRoomResponse,
 	JoinRoomByCodeRequest,
 	JoinRoomResponse,
+	RoomFetchResponse,
 	RoomChatListResponse,
 	RoomChatMessageResponse,
 	SendRoomChatMessageRequest,
@@ -76,17 +77,19 @@ def list_rooms(
 	limit: int = Query(default=20, ge=1, le=100),
 	cursor: datetime | None = Query(default=None),
 	owner_id: str | None = Query(default=None, min_length=1, max_length=150),
+	current_user: AuthUser = Depends(get_current_user),
 	room_service: RoomService = Depends(get_room_service),
 ) -> RoomListResponse:
-	return room_service.list_rooms(limit=limit, cursor=cursor, owner_id=owner_id)
+	return room_service.list_rooms(user_id=current_user.id, limit=limit, cursor=cursor, owner_id=owner_id)
 
 
-@router.get("/{room_id}", response_model=RoomResponse)
+@router.get("/{room_id}", response_model=RoomFetchResponse)
 def get_room(
 	room_id: UUID,
+	current_user: AuthUser = Depends(get_current_user),
 	room_service: RoomService = Depends(get_room_service),
-) -> RoomResponse:
-	return room_service.get_room(room_id)
+) -> RoomFetchResponse:
+	return room_service.get_room(room_id, current_user.id)
 
 
 @router.patch("/{room_id}", response_model=RoomResponse)
@@ -123,6 +126,16 @@ def join_room_by_code(
 	room_service: RoomService = Depends(get_room_service),
 ) -> JoinRoomResponse:
 	return room_service.join_room_by_code(payload, current_user.id)
+
+
+@router.post("/{room_id}/join-requests/{target_user_id}/approve", response_model=JoinRoomResponse)
+def approve_join_request(
+	room_id: UUID,
+	target_user_id: str,
+	current_user: AuthUser = Depends(get_current_user),
+	room_service: RoomService = Depends(get_room_service),
+) -> JoinRoomResponse:
+	return room_service.approve_join_request(room_id, approver_id=current_user.id, user_id=target_user_id)
 
 
 @router.get("/{room_id}/chat", response_model=RoomChatListResponse)

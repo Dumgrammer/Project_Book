@@ -8,6 +8,7 @@ import IconButton from "@mui/material/IconButton";
 import Chip from "@mui/material/Chip";
 import Avatar from "@mui/material/Avatar";
 import CircularProgress from "@mui/material/CircularProgress";
+import Button from "@mui/material/Button";
 import AttachFileRoundedIcon from "@mui/icons-material/AttachFileRounded";
 import SendRoundedIcon from "@mui/icons-material/SendRounded";
 import AutoAwesomeRoundedIcon from "@mui/icons-material/AutoAwesomeRounded";
@@ -43,6 +44,24 @@ const suggestions: Suggestion[] = [
 const FLASHCARD_LABEL = "Generate flashcards";
 const QUIZ_LABEL = "Create a quiz from my notes";
 
+type GenerationIntent = "flashcard" | "quiz" | null;
+
+function detectGenerationIntent(input: string): GenerationIntent {
+  const normalized = input.toLowerCase();
+
+  const flashcardIntent =
+    /\bflash\s*cards?\b/.test(normalized) ||
+    (/\bflashcard\b/.test(normalized) && /\b(create|generate|make|build)\b/.test(normalized));
+
+  const quizIntent =
+    /\bquiz(?:zes)?\b/.test(normalized) ||
+    (/\bquiz\b/.test(normalized) && /\b(create|generate|make|build)\b/.test(normalized));
+
+  if (flashcardIntent && !quizIntent) return "flashcard";
+  if (quizIntent && !flashcardIntent) return "quiz";
+  return null;
+}
+
 function buildSuggestionPrompt(label: string): string {
   switch (label) {
     case "Create a quiz from my notes":
@@ -69,7 +88,8 @@ interface ChatMessage {
 
 export default function ChatArea() {
   const { data: user } = useCurrentUser();
-  const firstName = (user?.full_name ?? user?.email ?? "there").split(" ")[0];
+  console.log("Current user in ChatArea:", user);
+  const firstName = (user?.f_name ?? user?.email ?? "there").split(" ")[0];
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [documentId, setDocumentId] = useState<string | null>(null);
@@ -95,9 +115,10 @@ export default function ChatArea() {
 
   const handleSend = async (seed?: string) => {
     const rawText = (seed ?? input).trim();
+    const typedIntent = seed ? null : detectGenerationIntent(rawText);
     const text = seed ? buildSuggestionPrompt(rawText) : rawText;
-    const isFlashcardAction = !!seed && rawText === FLASHCARD_LABEL;
-    const isQuizAction = !!seed && rawText === QUIZ_LABEL;
+    const isFlashcardAction = (!!seed && rawText === FLASHCARD_LABEL) || typedIntent === "flashcard";
+    const isQuizAction = (!!seed && rawText === QUIZ_LABEL) || typedIntent === "quiz";
     if (!text || isStreaming) return;
     if (seed && !selectedFile && !documentId) {
       setUiError("Upload a PDF first so I can use your document for this task.");
@@ -228,6 +249,30 @@ export default function ChatArea() {
     setDocumentId(null);
 
     event.target.value = "";
+  };
+
+  const canOpenStudyTools = Boolean(documentId);
+
+  const handleOpenFlashcards = () => {
+    if (!canOpenStudyTools) {
+      setUiError("Upload a PDF first so flashcards can be generated.");
+      return;
+    }
+    if (!flashcardPrompt) {
+      setFlashcardPrompt(buildSuggestionPrompt(FLASHCARD_LABEL));
+    }
+    setFlashcardOpen(true);
+  };
+
+  const handleOpenQuiz = () => {
+    if (!canOpenStudyTools) {
+      setUiError("Upload a PDF first so a quiz can be generated.");
+      return;
+    }
+    if (!quizPrompt) {
+      setQuizPrompt(buildSuggestionPrompt(QUIZ_LABEL));
+    }
+    setQuizOpen(true);
   };
 
   return (
@@ -477,6 +522,52 @@ export default function ChatArea() {
         accept="application/pdf,.pdf"
         onChange={handleFileChange}
       />
+
+      <Box
+        sx={{
+          position: "fixed",
+          right: 20,
+          top: "50%",
+          transform: "translateY(-50%)",
+          zIndex: 1300,
+          display: "flex",
+          flexDirection: "column",
+          gap: 1,
+        }}
+      >
+        <Button
+          variant="contained"
+          size="small"
+          startIcon={<StyleRoundedIcon sx={{ fontSize: 16 }} />}
+          onClick={handleOpenFlashcards}
+          sx={{
+            textTransform: "none",
+            fontSize: 12,
+            fontWeight: 700,
+            borderRadius: 2,
+            bgcolor: "#6366f1",
+            "&:hover": { bgcolor: "#4f46e5" },
+          }}
+        >
+          Flashcards
+        </Button>
+        <Button
+          variant="contained"
+          size="small"
+          startIcon={<QuizRoundedIcon sx={{ fontSize: 16 }} />}
+          onClick={handleOpenQuiz}
+          sx={{
+            textTransform: "none",
+            fontSize: 12,
+            fontWeight: 700,
+            borderRadius: 2,
+            bgcolor: "#0ea5e9",
+            "&:hover": { bgcolor: "#0284c7" },
+          }}
+        >
+          Quiz
+        </Button>
+      </Box>
 
       <FlashcardPanel
         open={flashcardOpen}

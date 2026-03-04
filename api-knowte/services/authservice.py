@@ -21,6 +21,7 @@ from schemas.auhtschema import RegisterRequest, TokenResponse
 class AccessTokenClaims(TypedDict):
     sub: str
     email: str
+    name: str
     exp: int
 
 
@@ -216,6 +217,7 @@ class AuthService:
         token_payload = TokenPayload(
             sub=str(payload["sub"]),
             email=str(payload["email"]),
+            f_name=str(payload["f_name"]),
             exp=int(payload["exp"]),
         )
         user = self._get_firebase_user_by_uid(token_payload.sub)
@@ -269,6 +271,7 @@ class AuthService:
 
         sub = decoded_payload.get("sub")
         email = decoded_payload.get("email")
+        fname = decoded_payload.get("f_name")
         exp = decoded_payload.get("exp")
         if not isinstance(sub, str) or not isinstance(email, str) or not isinstance(exp, int):
             raise HTTPException(
@@ -276,7 +279,7 @@ class AuthService:
                 detail="Token payload is missing required claims.",
             )
 
-        payload = AccessTokenClaims(sub=sub, email=email, exp=exp)
+        payload = AccessTokenClaims(sub=sub, email=email, f_name=fname, exp=exp)
         if payload["exp"] < int(time.time()):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

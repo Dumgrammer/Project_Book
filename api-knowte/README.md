@@ -545,3 +545,4 @@ The current AI/document layers are intentionally in-memory.
   - Conversations: **24 hours**
 
 Stopping the API process clears in-memory maps. Files under `uploads/` remain unless cleaned.
+

@@ -19,11 +19,13 @@ interface JoinRoomDialogProps {
 
 export default function JoinRoomDialog({ open, onClose }: JoinRoomDialogProps) {
   const [roomCode, setRoomCode] = useState("");
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const joinRoom = useJoinRoom();
   const router = useRouter();
 
   function handleClose() {
     setRoomCode("");
+    setInfoMessage(null);
     joinRoom.reset();
     onClose();
   }
@@ -33,6 +35,11 @@ export default function JoinRoomDialog({ open, onClose }: JoinRoomDialogProps) {
     if (!code) return;
     try {
       const result = await joinRoom.mutateAsync(code);
+      if (result.status === "pending_approval") {
+        setInfoMessage("Join request sent. Wait for room owner or co-admin approval.");
+        return;
+      }
+
       handleClose();
       router.push(`/rooms/${result.room_id}`);
     } catch {
@@ -45,8 +52,13 @@ export default function JoinRoomDialog({ open, onClose }: JoinRoomDialogProps) {
       <DialogTitle sx={{ fontWeight: 700 }}>Join with Room Code</DialogTitle>
       <DialogContent>
         <Typography sx={{ fontSize: 14, color: "text.secondary", mb: 2 }}>
-          Enter the room ID or invite code shared by the room owner.
+          Enter the invite code shared by the room owner.
         </Typography>
+        {infoMessage && (
+          <Alert severity="success" sx={{ mb: 2, fontSize: 13 }}>
+            {infoMessage}
+          </Alert>
+        )}
         {joinRoom.isError && (
           <Alert severity="error" sx={{ mb: 2, fontSize: 13 }}>
             {joinRoom.error.message}
@@ -55,7 +67,7 @@ export default function JoinRoomDialog({ open, onClose }: JoinRoomDialogProps) {
         <TextField
           autoFocus
           fullWidth
-          placeholder="e.g. 3fa85f64-5717-4562-b3fc-2c963f66afa6"
+          placeholder="e.g. ABC123"
           value={roomCode}
           onChange={(e) => setRoomCode(e.target.value)}
           size="small"

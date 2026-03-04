@@ -1,5 +1,20 @@
 import { z } from "zod";
 
+export const roomFetchResponseSchema = z.object({
+  id: z.string().uuid(),
+  r_name: z.string(),
+  r_tags: z.array(z.string()),
+  r_description: z.string(),
+  r_is_private: z.boolean(),
+  r_max_members: z.number().int().min(1).max(100),
+  r_owner_id: z.string(),
+  r_co_admin_ids: z.array(z.string()),
+  r_members: z.array(z.string()),
+  r_pending_member_ids: z.array(z.string()),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
 export const roomResponseSchema = z.object({
   id: z.string().uuid(),
   r_code: z.string(),
@@ -9,7 +24,9 @@ export const roomResponseSchema = z.object({
   r_is_private: z.boolean(),
   r_max_members: z.number().int().min(1).max(100),
   r_owner_id: z.string(),
+  r_co_admin_ids: z.array(z.string()),
   r_members: z.array(z.string()),
+  r_pending_member_ids: z.array(z.string()),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -31,7 +48,7 @@ export const updateRoomRequestSchema = z.object({
 });
 
 export const roomListResponseSchema = z.object({
-  items: z.array(roomResponseSchema),
+  items: z.array(roomFetchResponseSchema),
   next_cursor: z.string().nullable().optional(),
 });
 
@@ -41,9 +58,12 @@ export const deleteRoomResponseSchema = z.object({
 });
 
 export const joinRoomResponseSchema = z.object({
+  status: z.enum(["joined", "already_member", "pending_approval"]),
   room_id: z.string().uuid(),
   user_id: z.string(),
-  joined_at: z.string(),
+  joined_at: z.string().nullable().optional(),
+  requested_at: z.string().nullable().optional(),
+  approval_required: z.boolean().default(false),
 });
 
 export const sendRoomChatMessageRequestSchema = z.object({
@@ -73,6 +93,7 @@ export const roomChatStreamEventSchema = z.discriminatedUnion("type", [
   }),
 ]);
 
+export type RoomFetchResponse = z.infer<typeof roomFetchResponseSchema>;
 export type RoomResponse = z.infer<typeof roomResponseSchema>;
 export type CreateRoomRequest = z.infer<typeof createRoomRequestSchema>;
 export type UpdateRoomRequest = z.infer<typeof updateRoomRequestSchema>;

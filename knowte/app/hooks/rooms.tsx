@@ -7,6 +7,7 @@ import {
   createRoomRequestSchema,
   deleteRoomResponseSchema,
   joinRoomResponseSchema,
+  roomFetchResponseSchema,
   roomChatListResponseSchema,
   roomChatMessageResponseSchema,
   roomChatStreamEventSchema,
@@ -19,6 +20,7 @@ import type {
   CreateRoomRequest,
   DeleteRoomResponse,
   JoinRoomResponse,
+  RoomFetchResponse,
   RoomChatListResponse,
   RoomChatMessageResponse,
   RoomChatStreamEvent,
@@ -61,11 +63,11 @@ export function useRooms(params?: ListRoomsParams) {
 }
 
 export function useRoom(roomId: string | null) {
-  return useQuery<RoomResponse>({
+  return useQuery<RoomFetchResponse>({
     queryKey: ["rooms", roomId],
     queryFn: async () => {
       const { data } = await api.get(`/rooms/${roomId}`);
-      return roomResponseSchema.parse(data);
+      return roomFetchResponseSchema.parse(data);
     },
     enabled: !!roomId,
   });
@@ -133,7 +135,28 @@ export function useJoinRoom() {
       return joinRoomResponseSchema.parse(data);
     },
     onSuccess: (response: JoinRoomResponse) => {
-      queryClient.invalidateQueries({ queryKey: ["rooms", response.room_id, "chat"] });
+      if (response.status === "joined" || response.status === "already_member") {
+        queryClient.invalidateQueries({ queryKey: ["rooms", response.room_id, "chat"] });
+      }
+      queryClient.invalidateQueries({ queryKey: ["rooms"] });
+    },
+  });
+}
+
+export function useApproveJoinRequest() {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    JoinRoomResponse,
+    Error,
+    { roomId: string; targetUserId: string }
+  >({
+    mutationFn: async ({ roomId, targetUserId }) => {
+      const { data } = await api.post(`/rooms/${roomId}/join-requests/${targetUserId}/approve`);
+      return joinRoomResponseSchema.parse(data);
+    },
+    onSuccess: (_response, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["rooms", variables.roomId] });
       queryClient.invalidateQueries({ queryKey: ["rooms"] });
     },
   });

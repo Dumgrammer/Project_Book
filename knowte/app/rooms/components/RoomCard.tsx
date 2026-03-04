@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -9,23 +8,13 @@ import Avatar from "@mui/material/Avatar";
 import AvatarGroup from "@mui/material/AvatarGroup";
 import Card from "@mui/material/Card";
 import Button from "@mui/material/Button";
-import IconButton from "@mui/material/IconButton";
-import Menu from "@mui/material/Menu";
-import MenuItem from "@mui/material/MenuItem";
-import ListItemIcon from "@mui/material/ListItemIcon";
-import ListItemText from "@mui/material/ListItemText";
 import Divider from "@mui/material/Divider";
 import LinearProgress from "@mui/material/LinearProgress";
-import CircularProgress from "@mui/material/CircularProgress";
 import LockRoundedIcon from "@mui/icons-material/LockRounded";
 import PublicRoundedIcon from "@mui/icons-material/PublicRounded";
 
-import MoreHorizRoundedIcon from "@mui/icons-material/MoreHorizRounded";
-import EditRoundedIcon from "@mui/icons-material/EditRounded";
-import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
 import PersonRoundedIcon from "@mui/icons-material/PersonRounded";
-import type { RoomResponse } from "../../models/roommodel";
-import { useJoinRoom } from "../../hooks/rooms";
+import type { RoomFetchResponse } from "../../models/roommodel";
 import { useCurrentUser } from "../../hooks/auth";
 
 const avatarColors = [
@@ -49,16 +38,12 @@ function getInitials(name: string): string[] {
 }
 
 interface RoomCardProps {
-  room: RoomResponse;
-  onEdit: (room: RoomResponse) => void;
-  onDelete: (room: RoomResponse) => void;
+  room: RoomFetchResponse;
+  onJoinRequest: () => void;
 }
 
-export default function RoomCard({ room, onEdit, onDelete }: RoomCardProps) {
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const menuOpen = Boolean(anchorEl);
-  const joinRoom = useJoinRoom();
-  const { data: currentUser } = useCurrentUser();
+export default function RoomCard({ room, onJoinRequest }: RoomCardProps) {
+  const { data: currentUser, isLoading: isCurrentUserLoading } = useCurrentUser();
   const router = useRouter();
 
   const memberCount = room.r_members.length;
@@ -66,10 +51,8 @@ export default function RoomCard({ room, onEdit, onDelete }: RoomCardProps) {
   const isFull = memberCount >= room.r_max_members;
   const avatarLetters = getInitials(room.r_name);
   const isOwner = currentUser?.id === room.r_owner_id;
-  const isMember = useMemo(() => {
-    if (!currentUser?.id) return false;
-    return isOwner || room.r_members.includes(currentUser.id);
-  }, [currentUser?.id, isOwner, room.r_members]);
+  const hasResolvedUser = Boolean(currentUser?.id);
+  const isMember = Boolean(currentUser?.id && (isOwner || room.r_members.includes(currentUser.id)));
 
   return (
     <Card
@@ -130,66 +113,6 @@ export default function RoomCard({ room, onEdit, onDelete }: RoomCardProps) {
               </Typography>
             </Box>
           </Box>
-
-          <IconButton
-            size="small"
-            onClick={(e) => setAnchorEl(e.currentTarget)}
-            sx={{
-              color: "text.secondary",
-              bgcolor: "transparent",
-              "&:hover": { bgcolor: "action.hover" },
-            }}
-          >
-            <MoreHorizRoundedIcon sx={{ fontSize: 20 }} />
-          </IconButton>
-          <Menu
-            anchorEl={anchorEl}
-            open={menuOpen}
-            onClose={() => setAnchorEl(null)}
-            anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-            transformOrigin={{ vertical: "top", horizontal: "right" }}
-            slotProps={{
-              paper: {
-                sx: {
-                  minWidth: 150,
-                  borderRadius: 2,
-                  boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
-                  border: "1px solid rgba(0,0,0,0.06)",
-                  mt: 0.5,
-                },
-              },
-            }}
-          >
-            <MenuItem
-              onClick={() => {
-                setAnchorEl(null);
-                onEdit(room);
-              }}
-              sx={{ py: 1 }}
-            >
-              <ListItemIcon>
-                <EditRoundedIcon sx={{ fontSize: 18 }} />
-              </ListItemIcon>
-              <ListItemText primaryTypographyProps={{ fontSize: 14, fontWeight: 500 }}>
-                Edit
-              </ListItemText>
-            </MenuItem>
-            <Divider sx={{ my: 0.5 }} />
-            <MenuItem
-              onClick={() => {
-                setAnchorEl(null);
-                onDelete(room);
-              }}
-              sx={{ color: "error.main", py: 1 }}
-            >
-              <ListItemIcon>
-                <DeleteRoundedIcon sx={{ fontSize: 18, color: "error.main" }} />
-              </ListItemIcon>
-              <ListItemText primaryTypographyProps={{ fontSize: 14, fontWeight: 500 }}>
-                Delete
-              </ListItemText>
-            </MenuItem>
-          </Menu>
         </Box>
 
         {/* Description */}
@@ -214,7 +137,7 @@ export default function RoomCard({ room, onEdit, onDelete }: RoomCardProps) {
           <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mb: 2 }}>
             {room.r_tags.map((tag) => (
               <Chip
-                key={`${room.id}-${tag}`}
+                key={`${room.r_name}-${tag}`}
                 label={tag}
                 size="small"
                 sx={{
@@ -268,7 +191,7 @@ export default function RoomCard({ room, onEdit, onDelete }: RoomCardProps) {
 
         <Divider sx={{ mx: -2.5, borderColor: "rgba(0,0,0,0.05)" }} />
 
-        {/* Footer: avatars + join */}
+        {/* Footer: avatars + status */}
         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", py: 2 }}>
           <AvatarGroup
             max={4}
@@ -288,50 +211,37 @@ export default function RoomCard({ room, onEdit, onDelete }: RoomCardProps) {
               </Avatar>
             ))}
           </AvatarGroup>
-
           <Button
-            variant={isFull ? "outlined" : "contained"}
-            disabled={(isFull && !isMember) || joinRoom.isPending}
             size="small"
-            disableElevation
-            onClick={async () => {
+            variant={isMember ? "contained" : "outlined"}
+            onClick={() => {
+              if (isCurrentUserLoading || !hasResolvedUser) {
+                return;
+              }
+
               if (isMember) {
                 router.push(`/rooms/${room.id}`);
                 return;
               }
 
-              try {
-                await joinRoom.mutateAsync(room.id);
-                router.push(`/rooms/${room.id}`);
-              } catch {
-                // error handled by mutation state
-              }
+              onJoinRequest();
             }}
+            disabled={isCurrentUserLoading || !hasResolvedUser}
             sx={{
-              fontSize: 13,
+              fontSize: 12,
               fontWeight: 600,
               borderRadius: 2,
-              px: 2.5,
+              px: 2,
               textTransform: "none",
-              ...(isFull
-                ? {}
-                : {
-                    bgcolor: "#6366f1",
-                    "&:hover": { bgcolor: "#4f46e5" },
-                  }),
+              ...(isMember
+                ? {
+                  bgcolor: "#6366f1",
+                  "&:hover": { bgcolor: "#4f46e5" },
+                }
+                : {}),
             }}
           >
-            {joinRoom.isPending ? (
-              <CircularProgress size={16} sx={{ color: "#fff" }} />
-            ) : isMember ? (
-              "Hop In"
-            ) : isFull ? (
-              "Full"
-            ) : room.r_is_private ? (
-              "Request Access"
-            ) : (
-              "Join Room"
-            )}
+            {isMember ? "Hop In" : room.r_is_private ? "Request Access" : "Join Room"}
           </Button>
         </Box>
       </Box>

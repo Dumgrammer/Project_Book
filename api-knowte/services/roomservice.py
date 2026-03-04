@@ -13,6 +13,7 @@ from schemas.roomschema import (
 	CreateRoomRequest,
 	JoinRoomByCodeRequest,
 	JoinRoomResponse,
+	RoomFetchResponse,
 	RoomChatMessageResponse,
 	RoomChatListResponse,
 	RoomListResponse,
@@ -57,6 +58,7 @@ class RoomService:
 
 	def list_rooms(
 		self,
+		user_id: str,
 		limit: int = 20,
 		cursor: datetime | None = None,
 		owner_id: str | None = None,
@@ -71,13 +73,14 @@ class RoomService:
 			query = query.order_by("created_at", direction=firestore.Query.DESCENDING).limit(limit + 1)
 
 			rows = [self._normalize_room_row(doc.to_dict() or {}, room_id=doc.id) for doc in query.stream()]
+			rows = [row for row in rows if self._can_view_room(row, user_id)]
 			items_rows = rows[:limit]
 			next_cursor = None
 			if len(rows) > limit and items_rows:
 				next_cursor = self._ensure_utc(items_rows[-1]["created_at"])
 
 			return RoomListResponse(
-				items=[RoomResponse.model_validate(row) for row in items_rows],
+				items=[RoomFetchResponse.model_validate(row) for row in items_rows],
 				next_cursor=next_cursor,
 			)
 		except HTTPException:
@@ -88,7 +91,7 @@ class RoomService:
 				detail=f"Firebase list failed: {exc}",
 			) from exc
 
-	def get_room(self, room_id: UUID) -> RoomResponse:
+	def get_room(self, room_id: UUID, user_id: str) -> RoomFetchResponse:
 		client = get_firestore_client()
 		try:
 			snapshot = client.collection(ROOMS_COLLECTION).document(str(room_id)).get()
@@ -98,7 +101,12 @@ class RoomService:
 					detail="Room not found.",
 				)
 			row = self._normalize_room_row(snapshot.to_dict() or {}, room_id=str(room_id))
-			return RoomResponse.model_validate(row)
+			if not self._can_view_room(row, user_id):
+				raise HTTPException(
+					status_code=status.HTTP_404_NOT_FOUND,
+					detail="Room not found.",
+				)
+			return RoomFetchResponse.model_validate(row)
 		except HTTPException:
 			raise
 		except Exception as exc:
@@ -161,7 +169,7 @@ class RoomService:
 			) from exc
 
 	def join_room(self, room_id: UUID, user_id: str) -> JoinRoomResponse:
-		joined_at = datetime.now(timezone.utc)
+		now = datetime.now(timezone.utc)
 		client = get_firestore_client()
 		try:
 			doc_ref = client.collection(ROOMS_COLLECTION).document(str(room_id))
@@ -174,15 +182,45 @@ class RoomService:
 
 			row = self._normalize_room_row(snapshot.to_dict() or {}, room_id=str(room_id))
 			members = row.get("r_members") or []
-			if user_id not in members:
-				doc_ref.update(
-					{
-						"r_members": firestore.ArrayUnion([user_id]),
-						"updated_at": joined_at,
-					}
+			if user_id in members:
+				return JoinRoomResponse(
+					status="already_member",
+					room_id=room_id,
+					user_id=user_id,
+					joined_at=now,
 				)
 
-			return JoinRoomResponse(room_id=room_id, user_id=user_id, joined_at=joined_at)
+			if bool(row.get("r_is_private", False)):
+				pending_members = row.get("r_pending_member_ids") or []
+				if user_id not in pending_members:
+					doc_ref.update(
+						{
+							"r_pending_member_ids": firestore.ArrayUnion([user_id]),
+							"updated_at": now,
+						}
+					)
+
+				return JoinRoomResponse(
+					status="pending_approval",
+					room_id=room_id,
+					user_id=user_id,
+					requested_at=now,
+					approval_required=True,
+				)
+
+			doc_ref.update(
+				{
+					"r_members": firestore.ArrayUnion([user_id]),
+					"updated_at": now,
+				}
+			)
+
+			return JoinRoomResponse(
+				status="joined",
+				room_id=room_id,
+				user_id=user_id,
+				joined_at=now,
+			)
 		except HTTPException:
 			raise
 		except Exception as exc:
@@ -215,6 +253,63 @@ class RoomService:
 			raise HTTPException(
 				status_code=status.HTTP_502_BAD_GATEWAY,
 				detail=f"Firebase join-by-code failed: {exc}",
+			) from exc
+
+	def approve_join_request(self, room_id: UUID, approver_id: str, user_id: str) -> JoinRoomResponse:
+		approved_at = datetime.now(timezone.utc)
+		client = get_firestore_client()
+		try:
+			doc_ref = client.collection(ROOMS_COLLECTION).document(str(room_id))
+			snapshot = doc_ref.get()
+			if not snapshot.exists:
+				raise HTTPException(
+					status_code=status.HTTP_404_NOT_FOUND,
+					detail="Room not found.",
+				)
+
+			row = self._normalize_room_row(snapshot.to_dict() or {}, room_id=str(room_id))
+			if not self._can_manage_room_members(row, approver_id):
+				raise HTTPException(
+					status_code=status.HTTP_403_FORBIDDEN,
+					detail="Only room owner or co-admin can approve join requests.",
+				)
+
+			members = row.get("r_members") or []
+			if user_id in members:
+				return JoinRoomResponse(
+					status="already_member",
+					room_id=room_id,
+					user_id=user_id,
+					joined_at=approved_at,
+				)
+
+			pending_members = row.get("r_pending_member_ids") or []
+			if user_id not in pending_members:
+				raise HTTPException(
+					status_code=status.HTTP_404_NOT_FOUND,
+					detail="Join request not found.",
+				)
+
+			doc_ref.update(
+				{
+					"r_pending_member_ids": firestore.ArrayRemove([user_id]),
+					"r_members": firestore.ArrayUnion([user_id]),
+					"updated_at": approved_at,
+				}
+			)
+
+			return JoinRoomResponse(
+				status="joined",
+				room_id=room_id,
+				user_id=user_id,
+				joined_at=approved_at,
+			)
+		except HTTPException:
+			raise
+		except Exception as exc:
+			raise HTTPException(
+				status_code=status.HTTP_502_BAD_GATEWAY,
+				detail=f"Firebase approve failed: {exc}",
 			) from exc
 
 	def is_room_member(self, room_id: UUID, user_id: str) -> bool:
@@ -312,21 +407,58 @@ class RoomService:
 
 		owner_id = str(normalized.get("r_owner_id", "")).strip()
 		members_raw = normalized.get("r_members")
+		co_admins_raw = normalized.get("r_co_admin_ids")
+		pending_members_raw = normalized.get("r_pending_member_ids")
 		members: list[str]
+		co_admins: list[str]
+		pending_members: list[str]
 		if isinstance(members_raw, list):
 			members = [str(member) for member in members_raw if str(member).strip()]
 		else:
 			members = []
 
+		if isinstance(co_admins_raw, list):
+			co_admins = [str(admin_id) for admin_id in co_admins_raw if str(admin_id).strip()]
+		else:
+			co_admins = []
+
+		if isinstance(pending_members_raw, list):
+			pending_members = [str(member) for member in pending_members_raw if str(member).strip()]
+		else:
+			pending_members = []
+
 		if owner_id and owner_id not in members:
 			members.append(owner_id)
+
+		members = list(dict.fromkeys(members))
+		co_admins = [admin_id for admin_id in dict.fromkeys(co_admins) if admin_id != owner_id]
+		pending_members = [member_id for member_id in dict.fromkeys(pending_members) if member_id not in members]
+
 		normalized["r_members"] = members
+		normalized["r_co_admin_ids"] = co_admins
+		normalized["r_pending_member_ids"] = pending_members
 
 		room_code = normalized.get("r_code")
 		if not isinstance(room_code, str) or not room_code.strip():
 			normalized["r_code"] = self._derive_room_code(resolved_id)
 
 		return normalized
+
+	@staticmethod
+	def _can_manage_room_members(row: dict[str, object], user_id: str) -> bool:
+		owner_id = str(row.get("r_owner_id", "")).strip()
+		co_admins = row.get("r_co_admin_ids") or []
+		if user_id == owner_id:
+			return True
+		return isinstance(co_admins, list) and user_id in co_admins
+
+	@staticmethod
+	def _can_view_room(row: dict[str, object], user_id: str) -> bool:
+		if not bool(row.get("r_is_private", False)):
+			return True
+
+		members = row.get("r_members") or []
+		return isinstance(members, list) and user_id in members
 
 	@staticmethod
 	def _derive_room_code(room_id: str) -> str:

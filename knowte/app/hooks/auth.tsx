@@ -79,6 +79,7 @@ export function useCurrentUser() {
     queryKey: ["auth", "me"],
     queryFn: async () => {
       const { data } = await api.get("/auth/me");
+      console.log("Fetched current user data:", data);
       return userResponseSchema.parse(data);
     },
     enabled: typeof window !== "undefined" && !!getCookie("access_token"),
