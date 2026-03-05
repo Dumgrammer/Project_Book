@@ -19,6 +19,13 @@ import FindInPageRoundedIcon from "@mui/icons-material/FindInPageRounded";
 import SchoolRoundedIcon from "@mui/icons-material/SchoolRounded";
 import DescriptionRoundedIcon from "@mui/icons-material/DescriptionRounded";
 import StopCircleRoundedIcon from "@mui/icons-material/StopCircleRounded";
+import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
+import AddRoundedIcon from "@mui/icons-material/AddRounded";
+import MicRoundedIcon from "@mui/icons-material/MicRounded";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import ListItemText from "@mui/material/ListItemText";
 import { useCurrentUser } from "../../hooks/auth";
 import { useAgentStream } from "../../hooks/agent";
 import { useDocumentText, useDocumentUpload } from "../../hooks/document";
@@ -103,6 +110,7 @@ export default function ChatArea() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const listEndRef = useRef<HTMLDivElement>(null);
+  const [toolsAnchor, setToolsAnchor] = useState<null | HTMLElement>(null);
 
   const upload = useDocumentUpload();
   const { data: docText } = useDocumentText(documentId);
@@ -391,8 +399,8 @@ export default function ChatArea() {
         <Box
           sx={{
             width: "100%",
-            bgcolor: "#f1f5f9",
-            borderRadius: 3,
+            bgcolor: "#f8f9fa",
+            borderRadius: "24px",
             border: "1px solid #e2e8f0",
             transition: "border-color 0.2s, box-shadow 0.2s",
             "&:focus-within": {
@@ -401,70 +409,208 @@ export default function ChatArea() {
             },
           }}
         >
-          <Box sx={{ display: "flex", alignItems: "center", px: 2, pt: 1.5, pb: 0.5 }}>
+          {/* Text input area */}
+          <Box sx={{ display: "flex", alignItems: "center", px: 2.5, pt: 2, pb: 1 }}>
             <InputBase
-              placeholder="Ask Knowte anything about your documents..."
+              placeholder="Ask Knowte AI"
               fullWidth
               multiline
-              maxRows={4}
+              maxRows={5}
               value={input}
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={handleKeyDown}
               sx={{
-                fontSize: 15,
+                fontSize: 16,
                 color: "text.primary",
                 "& textarea::placeholder": { color: "#94a3b8", opacity: 1 },
               }}
             />
           </Box>
+
+          {/* Uploaded file chip */}
+          {uploadedFilename && (
+            <Box sx={{ px: 2.5, pb: 0.5 }}>
+              <Chip
+                label={uploadedFilename}
+                size="small"
+                onDelete={() => {
+                  setUploadedFilename(null);
+                  setSelectedFile(null);
+                  setDocumentId(null);
+                }}
+                sx={{
+                  bgcolor: "rgba(99,102,241,0.1)",
+                  color: "#6366f1",
+                  fontSize: 12,
+                  height: 26,
+                  "& .MuiChip-deleteIcon": { color: "#6366f1", fontSize: 16 },
+                }}
+              />
+            </Box>
+          )}
+
+          {/* Bottom toolbar */}
           <Box
             sx={{
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
               px: 1.5,
-              pb: 1,
+              pb: 1.5,
+              pt: 0.5,
             }}
           >
+            {/* Left actions */}
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-              <IconButton size="small" sx={{ color: "text.secondary" }} onClick={handlePickFile} disabled={upload.isPending}>
-                {upload.isPending ? <CircularProgress size={18} /> : <AttachFileRoundedIcon sx={{ fontSize: 20 }} />}
+              {/* Add / Attach file */}
+              <IconButton
+                size="small"
+                onClick={handlePickFile}
+                disabled={upload.isPending}
+                sx={{
+                  color: "text.secondary",
+                  "&:hover": { color: "text.primary", bgcolor: "rgba(0,0,0,0.04)" },
+                }}
+              >
+                {upload.isPending ? (
+                  <CircularProgress size={18} sx={{ color: "text.secondary" }} />
+                ) : (
+                  <AddRoundedIcon sx={{ fontSize: 22 }} />
+                )}
               </IconButton>
-              <Typography sx={{ fontSize: 12, color: "text.disabled" }}>
-                {uploadedFilename ?? "Upload a file to get started"}
-              </Typography>
+
+              {/* Tools menu */}
+              <Button
+                size="small"
+                startIcon={<TuneRoundedIcon sx={{ fontSize: 16 }} />}
+                onClick={(e) => setToolsAnchor(e.currentTarget)}
+                sx={{
+                  textTransform: "none",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: "text.secondary",
+                  borderRadius: 2,
+                  minWidth: 0,
+                  px: 1.5,
+                  "&:hover": { color: "text.primary", bgcolor: "rgba(0,0,0,0.04)" },
+                }}
+              >
+                Tools
+              </Button>
+              <Menu
+                anchorEl={toolsAnchor}
+                open={Boolean(toolsAnchor)}
+                onClose={() => setToolsAnchor(null)}
+                anchorOrigin={{ vertical: "top", horizontal: "left" }}
+                transformOrigin={{ vertical: "bottom", horizontal: "left" }}
+                slotProps={{
+                  paper: {
+                    sx: {
+                      bgcolor: "#fff",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 2,
+                      minWidth: 200,
+                      boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+                      "& .MuiMenuItem-root": {
+                        fontSize: 13,
+                        color: "text.primary",
+                        py: 1,
+                        "&:hover": { bgcolor: "rgba(99,102,241,0.08)" },
+                      },
+                    },
+                  },
+                }}
+              >
+                <MenuItem
+                  onClick={() => {
+                    setToolsAnchor(null);
+                    void handleSend(FLASHCARD_LABEL);
+                  }}
+                >
+                  <ListItemIcon>
+                    <StyleRoundedIcon sx={{ fontSize: 18, color: "#6366f1" }} />
+                  </ListItemIcon>
+                  <ListItemText>Generate Flashcards</ListItemText>
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    setToolsAnchor(null);
+                    void handleSend(QUIZ_LABEL);
+                  }}
+                >
+                  <ListItemIcon>
+                    <QuizRoundedIcon sx={{ fontSize: 18, color: "#0ea5e9" }} />
+                  </ListItemIcon>
+                  <ListItemText>Create Quiz</ListItemText>
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    setToolsAnchor(null);
+                    void handleSend("Summarize my file contents");
+                  }}
+                >
+                  <ListItemIcon>
+                    <SummarizeRoundedIcon sx={{ fontSize: 18, color: "#10b981" }} />
+                  </ListItemIcon>
+                  <ListItemText>Summarize Document</ListItemText>
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    setToolsAnchor(null);
+                    void handleSend("Find key topics in document");
+                  }}
+                >
+                  <ListItemIcon>
+                    <FindInPageRoundedIcon sx={{ fontSize: 18, color: "#f59e0b" }} />
+                  </ListItemIcon>
+                  <ListItemText>Find Key Topics</ListItemText>
+                </MenuItem>
+              </Menu>
             </Box>
-            {isStreaming ? (
+
+            {/* Right actions */}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+              {isStreaming ? (
+                <IconButton
+                  size="small"
+                  onClick={stop}
+                  sx={{
+                    bgcolor: "error.main",
+                    color: "#fff",
+                    width: 32,
+                    height: 32,
+                    "&:hover": { bgcolor: "error.dark" },
+                  }}
+                >
+                  <StopCircleRoundedIcon sx={{ fontSize: 18 }} />
+                </IconButton>
+              ) : (
+                <IconButton
+                  size="small"
+                  onClick={() => void handleSend()}
+                  disabled={!input.trim()}
+                  sx={{
+                    bgcolor: input.trim() ? "primary.main" : "transparent",
+                    color: input.trim() ? "#fff" : "#94a3b8",
+                    width: 32,
+                    height: 32,
+                    "&:hover": { bgcolor: input.trim() ? "primary.dark" : "rgba(0,0,0,0.04)" },
+                    "&.Mui-disabled": { bgcolor: "transparent", color: "#cbd5e1" },
+                  }}
+                >
+                  <SendRoundedIcon sx={{ fontSize: 18 }} />
+                </IconButton>
+              )}
               <IconButton
                 size="small"
-                onClick={stop}
                 sx={{
-                  bgcolor: "error.main",
-                  color: "#fff",
-                  width: 32,
-                  height: 32,
-                  "&:hover": { bgcolor: "error.dark" },
+                  color: "text.secondary",
+                  "&:hover": { color: "text.primary", bgcolor: "rgba(0,0,0,0.04)" },
                 }}
               >
-                <StopCircleRoundedIcon sx={{ fontSize: 18 }} />
+                <MicRoundedIcon sx={{ fontSize: 20 }} />
               </IconButton>
-            ) : (
-              <IconButton
-                size="small"
-                onClick={() => void handleSend()}
-                disabled={!input.trim()}
-                sx={{
-                  bgcolor: input.trim() ? "primary.main" : "#cbd5e1",
-                  color: "#fff",
-                  width: 32,
-                  height: 32,
-                  "&:hover": { bgcolor: "primary.dark" },
-                  "&.Mui-disabled": { bgcolor: "#cbd5e1", color: "#fff" },
-                }}
-              >
-                <SendRoundedIcon sx={{ fontSize: 18 }} />
-              </IconButton>
-            )}
+            </Box>
           </Box>
         </Box>
 
@@ -523,8 +669,8 @@ export default function ChatArea() {
         onChange={handleFileChange}
       />
 
-      {/* Transparent toggle buttons — hidden when respective panel is open */}
-      {!flashcardOpen && !quizOpen && (
+      {/* Transparent toggle buttons — only visible when a document is uploaded and panels are closed */}
+      {canOpenStudyTools && !flashcardOpen && !quizOpen && (
         <Box
           sx={{
             position: "fixed",

@@ -1,10 +1,13 @@
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import ollama
 from fastapi import HTTPException, status
 from fastapi.responses import StreamingResponse
+from firebase_admin import firestore
+
+from core.firebase_client import get_firestore_client
 
 from config import settings
 from models.agentmodel import ChatMessage, Conversation
@@ -22,6 +25,7 @@ MAX_CONVERSATIONS = 200
 MAX_MESSAGES_PER_CONVERSATION = 50
 CONVERSATION_TTL_SECONDS = 60 * 60 * 24  # 24 hours
 
+AGENTS_COLLECTION = "agents"
 
 class AgentService:
     def __init__(self) -> None:
@@ -86,9 +90,30 @@ class AgentService:
         )
 
     def _get_or_create_conversation(self, request: ChatRequest) -> Conversation:
-        # If conversation_id exists and is stored, get the existing conversation
-        if request.conversation_id and request.conversation_id in self._conversations:
-            return self._conversations[request.conversation_id]
+        client = get_firestore_client()
+        try:
+            #Check if the conv exists in fire base
+            conversation_id = str(uuid4())
+            now = datetime.now(timezone.utc)
+            agent_data = request.model_dump()
+            row = {
+                "conversation_id": conversation_id,
+                "created_at": now,
+                "updated_at": now,
+                "agent_data": agent_data,
+            }
+            client.collections(AGENTS_COLLECTION).document(conversation_id).set(row)
+            return ChatRequest.model_validate(agent_data)
+            if doc.exists:
+                # If conversation_id exists and is stored, get the existing conversation
+                return self._conversations[request.conversation_id]
+            
+        except Exception as exc:
+            # Handle any errors that occur while fetching the document
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error fetching conversation: {exc}",
+            ) from exc
 
         # If not, create a new conversation
         conv = Conversation(
