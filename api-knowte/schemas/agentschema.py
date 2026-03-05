@@ -7,6 +7,8 @@ class MessageItem(BaseModel):
 
 
 class ChatRequest(BaseModel):
+    # user_id: identifies who owns this conversation
+    user_id: str = Field(min_length=1)
     # message: what the user is asking right now
     message: str = Field(min_length=1, max_length=4096)
     # conversation_id: reuse to continue a conversation, or omit to start a new one
@@ -27,3 +29,18 @@ class StreamChunk(BaseModel):
     conversation_id: str
     delta: str
     done: bool
+
+
+class ConversationHistoryItem(BaseModel):
+    conversation_id: str
+    created_at: str
+    updated_at: str
+
+
+class ConversationHistoryResponse(BaseModel):
+    conversations: list[ConversationHistoryItem]
+
+
+class ConversationMessagesResponse(BaseModel):
+    conversation_id: str
+    messages: list[MessageItem]

@@ -11,7 +11,7 @@ from core.firebase_client import get_firestore_client
 
 from config import settings
 from models.agentmodel import ChatMessage, Conversation
-from schemas.agentschema import ChatRequest, ChatResponse
+from schemas.agentschema import ChatRequest, ChatResponse, ConversationHistoryItem, ConversationHistoryResponse, ConversationMessagesResponse
 
 # Default instructions sa AI — pwede mo palitan depende sa use case wink wink
 # Ito yung "system prompt" na utos kung paano mag-reply ang AI
@@ -91,37 +91,62 @@ class AgentService:
 
     def _get_or_create_conversation(self, request: ChatRequest) -> Conversation:
         client = get_firestore_client()
+
+        # Check if conversation already exists in Firestore
+        if request.conversation_id:
+            try:
+                doc = client.collection(AGENTS_COLLECTION).document(request.conversation_id).get()
+                if doc.exists:
+                    data = doc.to_dict()
+                    # Verify the conversation belongs to this user
+                    if data.get("user_id") != request.user_id:
+                        raise HTTPException(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            detail="This conversation does not belong to you.",
+                        )
+                    # Conversation exists in Firestore, reuse from in-memory cache
+                    if request.conversation_id in self._conversations:
+                        return self._conversations[request.conversation_id]
+                    conv = Conversation(
+                        id=request.conversation_id,
+                        user_id=request.user_id,
+                        model=self._model,
+                    )
+                    for msg in request.history:
+                        conv.messages.append(ChatMessage(role=msg.role, content=msg.content))
+                    self._trim_messages(conv)
+                    self._conversations[conv.id] = conv
+                    return conv
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Error fetching conversation: {exc}",
+                ) from exc
+
+        # Create a new conversation
+        conversation_id = str(uuid4())
+        now = datetime.now(timezone.utc)
+
         try:
-            #Check if the conv exists in fire base
-            conversation_id = str(uuid4())
-            now = datetime.now(timezone.utc)
-            agent_data = request.model_dump()
             row = {
                 "conversation_id": conversation_id,
+                "user_id": request.user_id,
                 "created_at": now,
                 "updated_at": now,
-                "agent_data": agent_data,
+                "agent_data": request.model_dump(),
             }
-            client.collections(AGENTS_COLLECTION).document(conversation_id).set(row)
-            return ChatRequest.model_validate(agent_data)
-            if doc.exists:
-                # If conversation_id exists and is stored, get the existing conversation
-                return self._conversations[request.conversation_id]
-            
+            client.collection(AGENTS_COLLECTION).document(conversation_id).set(row)
         except Exception as exc:
-            # Handle any errors that occur while fetching the document
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Error fetching conversation: {exc}",
+                detail=f"Error creating conversation: {exc}",
             ) from exc
 
-        # If not, create a new conversation
         conv = Conversation(
-            id=request.conversation_id or str(uuid4()),
+            id=conversation_id,
+            user_id=request.user_id,
             model=self._model,
         )
-
-        # If there is history, load all for immediate context
         for msg in request.history:
             conv.messages.append(ChatMessage(role=msg.role, content=msg.content))
 
@@ -129,6 +154,67 @@ class AgentService:
         self._evict_if_needed()
         self._conversations[conv.id] = conv
         return conv
+
+    def get_user_conversations(self, user_id: str) -> ConversationHistoryResponse:
+        """Fetch all conversations belonging to a user from Firestore."""
+        client = get_firestore_client()
+        try:
+            docs = (
+                client.collection(AGENTS_COLLECTION)
+                .where("user_id", "==", user_id)
+                .order_by("updated_at", direction=firestore.Query.DESCENDING)
+                .stream()
+            )
+            items = []
+            for doc in docs:
+                data = doc.to_dict()
+                items.append(ConversationHistoryItem(
+                    conversation_id=data["conversation_id"],
+                    created_at=str(data.get("created_at", "")),
+                    updated_at=str(data.get("updated_at", "")),
+                ))
+            return ConversationHistoryResponse(conversations=items)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error fetching conversations: {exc}",
+            ) from exc
+
+    def get_conversation_messages(self, user_id: str, conversation_id: str) -> ConversationMessagesResponse:
+        """Fetch messages for a specific conversation, verifying ownership."""
+        client = get_firestore_client()
+        try:
+            doc = client.collection(AGENTS_COLLECTION).document(conversation_id).get()
+            if not doc.exists:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Conversation not found.",
+                )
+            data = doc.to_dict()
+            if data.get("user_id") != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="This conversation does not belong to you.",
+                )
+            agent_data = data.get("agent_data", {})
+            history = agent_data.get("history", [])
+            # Also include messages from in-memory cache if available
+            if conversation_id in self._conversations:
+                conv = self._conversations[conversation_id]
+                messages = [{"role": m.role, "content": m.content} for m in conv.messages]
+            else:
+                messages = history
+            return ConversationMessagesResponse(
+                conversation_id=conversation_id,
+                messages=messages,
+            )
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error fetching messages: {exc}",
+            ) from exc
 
     def _append_user_message(self, conversation: Conversation, content: str) -> None:
         conversation.messages.append(ChatMessage(role="user", content=content))
