@@ -1,34 +1,55 @@
 from datetime import datetime, timezone
+from pathlib import Path
 from threading import Lock
 from uuid import UUID
 from uuid import uuid4
 import secrets
 import string
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException, UploadFile, status
 from firebase_admin import firestore
+import ollama
 
+from config import settings
 from core.firebase_client import get_firestore_client
 from schemas.roomschema import (
 	CreateRoomRequest,
 	JoinRoomByCodeRequest,
 	JoinRoomResponse,
+	RoomAIChatResponse,
 	RoomFetchResponse,
 	RoomChatMessageResponse,
 	RoomChatListResponse,
 	RoomListResponse,
 	RoomResponse,
+	SendRoomAIChatMessageRequest,
 	SendRoomChatMessageRequest,
 	UpdateRoomRequest,
 )
 
 ROOMS_COLLECTION = "rooms"
+ROOM_AI_USER_ID = "knowte-ai"
+
+ROOM_UPLOADS_DIR = Path(__file__).resolve().parent.parent / "uploads" / "rooms"
+ROOM_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+MAX_ROOM_FILE_BYTES = 10 * 1024 * 1024  # 10 MB
+ALLOWED_EXTENSIONS = {
+	".pdf", ".doc", ".docx", ".txt", ".md",
+	".png", ".jpg", ".jpeg", ".gif", ".webp",
+	".csv", ".xlsx", ".pptx",
+}
+ROOM_AI_SYSTEM_PROMPT = (
+	"You are Knowte AI in a collaborative study room. "
+	"Answer clearly, stay concise, and focus on the latest user question while using room context when useful. "
+	"Do not invent facts."
+)
 
 
 class RoomService:
 	def __init__(self) -> None:
 		self._room_chat_messages: dict[str, list[dict[str, object]]] = {}
 		self._memory_lock = Lock()
+		self._ai_client = ollama.Client(host=settings.ollama_base_url)
 
 	def create_room(self, payload: CreateRoomRequest, owner_id: str) -> RoomResponse:
 		client = get_firestore_client()
@@ -317,6 +338,54 @@ class RoomService:
 		members = row.get("r_members") or []
 		return isinstance(members, list) and user_id in members
 
+	def upload_chat_file(
+		self,
+		room_id: UUID,
+		user_id: str,
+		file: UploadFile,
+		message: str = "",
+	) -> RoomChatMessageResponse:
+		self._ensure_room_exists(room_id)
+		if not self.is_room_member(room_id, user_id):
+			raise HTTPException(
+				status_code=status.HTTP_403_FORBIDDEN,
+				detail="Join the room before uploading files.",
+			)
+
+		filename = (file.filename or "file").strip()
+		suffix = Path(filename).suffix.lower()
+		if suffix not in ALLOWED_EXTENSIONS:
+			raise HTTPException(
+				status_code=status.HTTP_400_BAD_REQUEST,
+				detail=f"File type '{suffix}' is not allowed.",
+			)
+
+		file_bytes = file.file.read()
+		if len(file_bytes) > MAX_ROOM_FILE_BYTES:
+			raise HTTPException(
+				status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+				detail=f"File too large. Max size is {MAX_ROOM_FILE_BYTES // (1024 * 1024)} MB.",
+			)
+
+		stored_name = f"{uuid4()}{suffix}"
+		(ROOM_UPLOADS_DIR / stored_name).write_bytes(file_bytes)
+
+		file_url = f"/uploads/rooms/{stored_name}"
+		text = message.strip() if message.strip() else f"Shared a file: {filename}"
+
+		chat_msg = self._build_chat_message(
+			room_id=room_id,
+			user_id=user_id,
+			text=text,
+			file_url=file_url,
+			file_name=filename,
+		)
+
+		with self._memory_lock:
+			self._room_chat_messages.setdefault(str(room_id), []).append(chat_msg)
+
+		return RoomChatMessageResponse.model_validate(chat_msg)
+
 	def add_chat_message(
 		self,
 		room_id: UUID,
@@ -330,19 +399,50 @@ class RoomService:
 				detail="Join the room before sending messages.",
 			)
 
-		message = {
-			"id": str(uuid4()),
-			"room_id": str(room_id),
-			"user_id": user_id,
-			"message": payload.message,
-			"created_at": datetime.now(timezone.utc),
-		}
+		message = self._build_chat_message(room_id=room_id, user_id=user_id, text=payload.message)
 
 		with self._memory_lock:
 			room_messages = self._room_chat_messages.setdefault(str(room_id), [])
 			room_messages.append(message)
 
 		return RoomChatMessageResponse.model_validate(message)
+
+	def add_ai_chat_message(
+		self,
+		room_id: UUID,
+		user_id: str,
+		payload: SendRoomAIChatMessageRequest,
+	) -> RoomAIChatResponse:
+		self._ensure_room_exists(room_id)
+		if not self.is_room_member(room_id, user_id):
+			raise HTTPException(
+				status_code=status.HTTP_403_FORBIDDEN,
+				detail="Join the room before using room AI.",
+			)
+
+		user_message = self._build_chat_message(room_id=room_id, user_id=user_id, text=payload.message)
+
+		with self._memory_lock:
+			room_messages = self._room_chat_messages.setdefault(str(room_id), [])
+			room_messages.append(user_message)
+			recent_context = list(room_messages[-20:])
+
+		ai_reply = self._generate_ai_reply(
+			room_id=room_id,
+			requester_id=user_id,
+			prompt=payload.message,
+			recent_context=recent_context,
+		)
+
+		assistant_message = self._build_chat_message(room_id=room_id, user_id=ROOM_AI_USER_ID, text=ai_reply)
+
+		with self._memory_lock:
+			self._room_chat_messages.setdefault(str(room_id), []).append(assistant_message)
+
+		return RoomAIChatResponse(
+			user_message=RoomChatMessageResponse.model_validate(user_message),
+			ai_message=RoomChatMessageResponse.model_validate(assistant_message),
+		)
 
 	def list_chat_messages(self, room_id: UUID, user_id: str, limit: int = 50) -> RoomChatListResponse:
 		self._ensure_room_exists(room_id)
@@ -474,6 +574,83 @@ class RoomService:
 		if value.tzinfo is None:
 			return value.replace(tzinfo=timezone.utc)
 		return value
+
+	@staticmethod
+	def _build_chat_message(
+		room_id: UUID,
+		user_id: str,
+		text: str,
+		file_url: str | None = None,
+		file_name: str | None = None,
+	) -> dict[str, object]:
+		msg: dict[str, object] = {
+			"id": str(uuid4()),
+			"room_id": str(room_id),
+			"user_id": user_id,
+			"message": text,
+			"file_url": file_url,
+			"file_name": file_name,
+			"created_at": datetime.now(timezone.utc),
+		}
+		return msg
+
+	def _generate_ai_reply(
+		self,
+		room_id: UUID,
+		requester_id: str,
+		prompt: str,
+		recent_context: list[dict[str, object]],
+	) -> str:
+		context_lines: list[str] = []
+		for row in recent_context[-12:]:
+			row_user_id = str(row.get("user_id", "")).strip()
+			if row_user_id == ROOM_AI_USER_ID:
+				speaker = "Knowte AI"
+			elif row_user_id == requester_id:
+				speaker = "You"
+			else:
+				speaker = "Member"
+
+			content = str(row.get("message", "")).strip()
+			if not content:
+				continue
+			context_lines.append(f"{speaker}: {content}")
+
+		context_blob = "\n".join(context_lines) if context_lines else "(no previous room messages)"
+
+		messages = [
+			{"role": "system", "content": ROOM_AI_SYSTEM_PROMPT},
+			{
+				"role": "user",
+				"content": (
+					f"Room ID: {room_id}\n"
+					f"Recent chat:\n{context_blob}\n\n"
+					f"Latest request: {prompt}\n"
+					"Reply as Knowte AI to help the room."
+				),
+			},
+		]
+
+		try:
+			response = self._ai_client.chat(model=settings.ollama_model, messages=messages)
+		except ollama.ResponseError as exc:
+			raise HTTPException(
+				status_code=status.HTTP_502_BAD_GATEWAY,
+				detail=f"Ollama error: {exc.error}",
+			) from exc
+		except Exception as exc:
+			raise HTTPException(
+				status_code=status.HTTP_502_BAD_GATEWAY,
+				detail=f"Cannot reach Ollama: {exc}",
+			) from exc
+
+		reply = str(response.message.content or "").strip()
+		if not reply:
+			raise HTTPException(
+				status_code=status.HTTP_502_BAD_GATEWAY,
+				detail="AI returned an empty response.",
+			)
+		return reply
 
 
 _room_service = RoomService()

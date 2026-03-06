@@ -75,11 +75,18 @@ export const roomChatMessageResponseSchema = z.object({
   room_id: z.string().uuid(),
   user_id: z.string(),
   message: z.string(),
+  file_url: z.string().nullable().optional(),
+  file_name: z.string().nullable().optional(),
   created_at: z.string(),
 });
 
 export const roomChatListResponseSchema = z.object({
   items: z.array(roomChatMessageResponseSchema),
+});
+
+export const roomAiChatResponseSchema = z.object({
+  user_message: roomChatMessageResponseSchema,
+  ai_message: roomChatMessageResponseSchema,
 });
 
 export const roomChatStreamEventSchema = z.discriminatedUnion("type", [
@@ -103,4 +110,5 @@ export type JoinRoomResponse = z.infer<typeof joinRoomResponseSchema>;
 export type SendRoomChatMessageRequest = z.infer<typeof sendRoomChatMessageRequestSchema>;
 export type RoomChatMessageResponse = z.infer<typeof roomChatMessageResponseSchema>;
 export type RoomChatListResponse = z.infer<typeof roomChatListResponseSchema>;
+export type RoomAiChatResponse = z.infer<typeof roomAiChatResponseSchema>;
 export type RoomChatStreamEvent = z.infer<typeof roomChatStreamEventSchema>;

@@ -95,7 +95,6 @@ interface ChatMessage {
 
 export default function ChatArea() {
   const { data: user } = useCurrentUser();
-  console.log("Current user in ChatArea:", user);
   const firstName = (user?.f_name ?? user?.email ?? "there").split(" ")[0];
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -122,12 +121,17 @@ export default function ChatArea() {
   }, [messages, isStreaming]);
 
   const handleSend = async (seed?: string) => {
+    const currentUserId = user?.id;
     const rawText = (seed ?? input).trim();
     const typedIntent = seed ? null : detectGenerationIntent(rawText);
     const text = seed ? buildSuggestionPrompt(rawText) : rawText;
     const isFlashcardAction = (!!seed && rawText === FLASHCARD_LABEL) || typedIntent === "flashcard";
     const isQuizAction = (!!seed && rawText === QUIZ_LABEL) || typedIntent === "quiz";
     if (!text || isStreaming) return;
+    if (!currentUserId) {
+      setUiError("You must be signed in to chat.");
+      return;
+    }
     if (seed && !selectedFile && !documentId) {
       setUiError("Upload a PDF first so I can use your document for this task.");
       return;
@@ -202,6 +206,7 @@ export default function ChatArea() {
       }
 
       const finalReply = await send({
+        user_id: currentUserId,
         message: text,
         conversation_id: conversationId ?? undefined,
         history,

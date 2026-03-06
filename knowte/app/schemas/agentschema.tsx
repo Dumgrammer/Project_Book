@@ -6,6 +6,7 @@ export const messageItemSchema = z.object({
 });
 
 export const chatRequestSchema = z.object({
+  user_id: z.string().min(1),
   message: z.string().min(1).max(4096),
   conversation_id: z.string().nullable().optional(),
   history: z.array(messageItemSchema).optional().default([]),

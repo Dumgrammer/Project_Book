@@ -87,6 +87,8 @@ class RoomChatMessageResponse(BaseModel):
     room_id: UUID
     user_id: str
     message: str
+    file_url: Optional[str] = None
+    file_name: Optional[str] = None
     created_at: datetime
 
 
@@ -96,3 +98,12 @@ class SendRoomChatMessageRequest(BaseModel):
 
 class RoomChatListResponse(BaseModel):
     items: list[RoomChatMessageResponse]
+
+
+class SendRoomAIChatMessageRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=4000)
+
+
+class RoomAIChatResponse(BaseModel):
+    user_message: RoomChatMessageResponse
+    ai_message: RoomChatMessageResponse

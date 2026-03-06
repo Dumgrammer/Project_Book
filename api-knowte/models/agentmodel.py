@@ -21,5 +21,6 @@ class Conversation:
     # messages: full chat history for this conversation
     messages: list[ChatMessage] = field(default_factory=list)
     # model: which Ollama model to use (default: phi3)
+    system_prompt: str = ""
     model: str = "phi3"
     created_at: datetime = field(default_factory=datetime.utcnow)

@@ -9,5 +9,6 @@ export type {
   SendRoomChatMessageRequest,
   RoomChatMessageResponse,
   RoomChatListResponse,
+  RoomAiChatResponse,
   RoomChatStreamEvent,
 } from "../schemas/roomschema";

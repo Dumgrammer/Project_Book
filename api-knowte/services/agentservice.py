@@ -15,11 +15,11 @@ from schemas.agentschema import ChatRequest, ChatResponse, ConversationHistoryIt
 
 # Default instructions sa AI — pwede mo palitan depende sa use case wink wink
 # Ito yung "system prompt" na utos kung paano mag-reply ang AI
-DEFAULT_SYSTEM_PROMPT = (
+DEFAULT_SYSTEM_PROMPT: str = (
     "You are Knowte AI, a helpful study assistant. "
     "Answer questions clearly and concisely. "
-    "When explaining concepts, use examples when helpful.",
-    "STRICTLY! follow the instructions and do not add any extra information if not asked. "
+    "When explaining concepts, use examples when helpful. "
+    "STRICTLY follow the instructions and do not add extra information unless asked."
 )
 MAX_CONVERSATIONS = 200
 MAX_MESSAGES_PER_CONVERSATION = 50
@@ -197,6 +197,7 @@ class AgentService:
                     detail="This conversation does not belong to you.",
                 )
             agent_data = data.get("agent_data", {})
+            
             history = agent_data.get("history", [])
             # Also include messages from in-memory cache if available
             if conversation_id in self._conversations:
@@ -224,7 +225,7 @@ class AgentService:
         self, conversation: Conversation, system_prompt: str | None
     ) -> list[dict[str, str]]:
         # Always starts with system prompt — the first instruction to the AI
-        prompt = system_prompt or DEFAULT_SYSTEM_PROMPT
+        prompt = DEFAULT_SYSTEM_PROMPT
         messages: list[dict[str, str]] = [{"role": "system", "content": prompt}]
         # Next all history messages (user and assistant previous messages)
         for msg in conversation.messages:

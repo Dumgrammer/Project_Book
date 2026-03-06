@@ -10,6 +10,7 @@ import {
   roomFetchResponseSchema,
   roomChatListResponseSchema,
   roomChatMessageResponseSchema,
+  roomAiChatResponseSchema,
   roomChatStreamEventSchema,
   roomListResponseSchema,
   roomResponseSchema,
@@ -23,6 +24,7 @@ import type {
   RoomFetchResponse,
   RoomChatListResponse,
   RoomChatMessageResponse,
+  RoomAiChatResponse,
   RoomChatStreamEvent,
   RoomListResponse,
   RoomResponse,
@@ -187,6 +189,46 @@ export function useSendRoomChatMessage() {
       return roomChatMessageResponseSchema.parse(data);
     },
     onSuccess: (_response: RoomChatMessageResponse, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["rooms", variables.roomId, "chat"] });
+    },
+  });
+}
+
+export function useAskRoomAI() {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    RoomAiChatResponse,
+    Error,
+    { roomId: string; payload: SendRoomChatMessageRequest }
+  >({
+    mutationFn: async ({ roomId, payload }) => {
+      const validated = sendRoomChatMessageRequestSchema.parse(payload);
+      const { data } = await api.post(`/rooms/${roomId}/chat/ai`, validated);
+      return roomAiChatResponseSchema.parse(data);
+    },
+    onSuccess: (_response, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["rooms", variables.roomId, "chat"] });
+    },
+  });
+}
+
+export function useUploadRoomChatFile() {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    RoomChatMessageResponse,
+    Error,
+    { roomId: string; file: File; message?: string }
+  >({
+    mutationFn: async ({ roomId, file, message }) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      if (message) formData.append("message", message);
+      const { data } = await api.post(`/rooms/${roomId}/chat/upload`, formData);
+      return roomChatMessageResponseSchema.parse(data);
+    },
+    onSuccess: (_response, variables) => {
       queryClient.invalidateQueries({ queryKey: ["rooms", variables.roomId, "chat"] });
     },
   });

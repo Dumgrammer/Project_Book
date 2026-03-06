@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, UploadFile, File, WebSocket, WebSocketDisconnect, status
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import ValidationError
 
@@ -11,9 +11,11 @@ from schemas.roomschema import (
 	DeleteRoomResponse,
 	JoinRoomByCodeRequest,
 	JoinRoomResponse,
+	RoomAIChatResponse,
 	RoomFetchResponse,
 	RoomChatListResponse,
 	RoomChatMessageResponse,
+	SendRoomAIChatMessageRequest,
 	SendRoomChatMessageRequest,
 	RoomListResponse,
 	RoomResponse,
@@ -156,6 +158,50 @@ def send_room_chat_message(
 	room_service: RoomService = Depends(get_room_service),
 ) -> RoomChatMessageResponse:
 	return room_service.add_chat_message(room_id, current_user.id, payload)
+
+
+@router.post("/{room_id}/chat/ai", response_model=RoomAIChatResponse)
+async def send_room_ai_chat_message(
+	room_id: UUID,
+	payload: SendRoomAIChatMessageRequest,
+	current_user: AuthUser = Depends(get_current_user),
+	room_service: RoomService = Depends(get_room_service),
+) -> RoomAIChatResponse:
+	response = room_service.add_ai_chat_message(room_id, current_user.id, payload)
+	await chat_connection_manager.broadcast(
+		room_id,
+		{
+			"type": "chat_message",
+			"data": response.user_message.model_dump(mode="json"),
+		},
+	)
+	await chat_connection_manager.broadcast(
+		room_id,
+		{
+			"type": "chat_message",
+			"data": response.ai_message.model_dump(mode="json"),
+		},
+	)
+	return response
+
+
+@router.post("/{room_id}/chat/upload", response_model=RoomChatMessageResponse, status_code=status.HTTP_201_CREATED)
+async def upload_room_chat_file(
+	room_id: UUID,
+	file: UploadFile = File(...),
+	message: str = Form(default=""),
+	current_user: AuthUser = Depends(get_current_user),
+	room_service: RoomService = Depends(get_room_service),
+) -> RoomChatMessageResponse:
+	response = room_service.upload_chat_file(room_id, current_user.id, file, message)
+	await chat_connection_manager.broadcast(
+		room_id,
+		{
+			"type": "chat_message",
+			"data": response.model_dump(mode="json"),
+		},
+	)
+	return response
 
 
 @router.websocket("/{room_id}/chat/stream")

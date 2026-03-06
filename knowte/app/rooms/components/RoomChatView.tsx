@@ -9,9 +9,16 @@ import Avatar from "@mui/material/Avatar";
 import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
 import SendRoundedIcon from "@mui/icons-material/SendRounded";
+import SmartToyRoundedIcon from "@mui/icons-material/SmartToyRounded";
+import AttachFileRoundedIcon from "@mui/icons-material/AttachFileRounded";
+import InsertDriveFileRoundedIcon from "@mui/icons-material/InsertDriveFileRounded";
+import Chip from "@mui/material/Chip";
+import Link from "@mui/material/Link";
 import {
   useRoomChat,
   useSendRoomChatMessage,
+  useAskRoomAI,
+  useUploadRoomChatFile,
   createRoomChatStream,
   parseRoomChatStreamEvent,
 } from "../../hooks/rooms";
@@ -28,6 +35,7 @@ const AVATAR_COLORS = [
   "#0ea5e9",
   "#d946ef",
 ];
+const ROOM_AI_USER_ID = "knowte-ai";
 
 function userColor(userId: string): string {
   let hash = 0;
@@ -51,6 +59,9 @@ function resolveDisplayName(
   currentUserFullName?: string | null,
   currentUserEmail?: string,
 ): string {
+  if (userId === ROOM_AI_USER_ID) {
+    return "Knowte AI";
+  }
   if (currentUserId && userId === currentUserId) {
     const fullName = currentUserFullName?.trim();
     if (fullName) return fullName;
@@ -78,9 +89,12 @@ export default function RoomChatView({ roomId }: RoomChatViewProps) {
   const { data: user } = useCurrentUser();
   const chatQuery = useRoomChat(roomId);
   const sendMessage = useSendRoomChatMessage();
+  const askRoomAI = useAskRoomAI();
+  const uploadFile = useUploadRoomChatFile();
 
   const [liveMessages, setLiveMessages] = useState<RoomChatMessageResponse[]>([]);
   const [input, setInput] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [wsError, setWsError] = useState<string | null>(null);
   const [isWsConnected, setIsWsConnected] = useState(false);
 
@@ -89,6 +103,7 @@ export default function RoomChatView({ roomId }: RoomChatViewProps) {
   const seenIds = useRef<Set<string>>(new Set());
   const reconnectTimerRef = useRef<number | null>(null);
   const reconnectAttemptsRef = useRef(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Seed seen-ids from HTTP history so WS doesn't duplicate
   useEffect(() => {
@@ -194,17 +209,37 @@ export default function RoomChatView({ roomId }: RoomChatViewProps) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [liveMessages, chatQuery.data?.items]);
 
-  const handleSend = useCallback(async () => {
+  const handleSend = useCallback(async (mode: "member" | "ai" = "member") => {
     const text = input.trim();
-    if (!text) return;
+    const file = selectedFile;
+    if (!text && !file) return;
+
+    if (file) {
+      try {
+        await uploadFile.mutateAsync({ roomId, file, message: text || undefined });
+        setInput("");
+        setSelectedFile(null);
+      } catch {
+        // error surfaced via uploadFile.error
+      }
+      return;
+    }
+
+    if (mode === "ai") {
+      try {
+        await askRoomAI.mutateAsync({ roomId, payload: { message: text } });
+        setInput("");
+      } catch {
+        // error surfaced via askRoomAI.error
+      }
+      return;
+    }
 
     const ws = wsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) {
-      // Prefer WebSocket for real-time delivery
       ws.send(JSON.stringify({ message: text }));
       setInput("");
     } else {
-      // Fallback to HTTP
       try {
         await sendMessage.mutateAsync({ roomId, payload: { message: text } });
         setInput("");
@@ -212,13 +247,21 @@ export default function RoomChatView({ roomId }: RoomChatViewProps) {
         // error surfaced via sendMessage.error
       }
     }
-  }, [input, roomId, sendMessage]);
+  }, [askRoomAI, input, roomId, sendMessage, selectedFile, uploadFile]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       void handleSend();
     }
+  };
+
+  const handlePickFile = () => fileInputRef.current?.click();
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) setSelectedFile(file);
+    e.target.value = "";
   };
 
   // Merge HTTP-fetched history + live WS messages, deduplicated
@@ -272,6 +315,12 @@ export default function RoomChatView({ roomId }: RoomChatViewProps) {
           </Alert>
         )}
 
+        {askRoomAI.isError && (
+          <Alert severity="error" sx={{ mb: 1 }}>
+            {askRoomAI.error.message}
+          </Alert>
+        )}
+
         {merged.length === 0 && !chatQuery.isLoading && (
           <Box sx={{ textAlign: "center", py: 6 }}>
             <Typography sx={{ fontSize: 14, color: "text.disabled" }}>
@@ -282,6 +331,7 @@ export default function RoomChatView({ roomId }: RoomChatViewProps) {
 
         {merged.map((msg) => {
           const isOwn = msg.user_id === currentUserId;
+          const isAi = msg.user_id === ROOM_AI_USER_ID;
           const displayName = resolveDisplayName(
             msg.user_id,
             currentUserId,
@@ -306,10 +356,10 @@ export default function RoomChatView({ roomId }: RoomChatViewProps) {
                     height: 28,
                     fontSize: 12,
                     fontWeight: 700,
-                    bgcolor: userColor(msg.user_id),
+                    bgcolor: isAi ? "#0f766e" : userColor(msg.user_id),
                   }}
                 >
-                  {initialsFromName(displayName)}
+                  {isAi ? "AI" : initialsFromName(displayName)}
                 </Avatar>
               )}
               <Box
@@ -318,8 +368,9 @@ export default function RoomChatView({ roomId }: RoomChatViewProps) {
                   px: 2,
                   py: 1,
                   borderRadius: isOwn ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
-                  bgcolor: isOwn ? "#6366f1" : "#f1f5f9",
+                  bgcolor: isOwn ? "#6366f1" : isAi ? "#ecfeff" : "#f1f5f9",
                   color: isOwn ? "#fff" : "text.primary",
+                  border: isAi ? "1px solid #99f6e4" : "none",
                 }}
               >
                 {!isOwn && (
@@ -337,6 +388,25 @@ export default function RoomChatView({ roomId }: RoomChatViewProps) {
                 <Typography sx={{ fontSize: 14, lineHeight: 1.5, wordBreak: "break-word" }}>
                   {msg.message}
                 </Typography>
+                {msg.file_url && (
+                  <Link
+                    href={`${process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000"}${msg.file_url}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    underline="hover"
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 0.5,
+                      mt: 0.5,
+                      fontSize: 13,
+                      color: isOwn ? "#c7d2fe" : "primary.main",
+                    }}
+                  >
+                    <InsertDriveFileRoundedIcon sx={{ fontSize: 16 }} />
+                    {msg.file_name || "Download file"}
+                  </Link>
+                )}
                 <Typography
                   sx={{
                     fontSize: 10,
@@ -361,12 +431,27 @@ export default function RoomChatView({ roomId }: RoomChatViewProps) {
           py: 1.5,
           borderTop: "1px solid",
           borderColor: "divider",
-          display: "flex",
-          alignItems: "center",
-          gap: 1,
           bgcolor: "background.paper",
         }}
       >
+        {selectedFile && (
+          <Box sx={{ mb: 1 }}>
+            <Chip
+              icon={<InsertDriveFileRoundedIcon sx={{ fontSize: 16 }} />}
+              label={selectedFile.name}
+              size="small"
+              onDelete={() => setSelectedFile(null)}
+              sx={{ maxWidth: "100%" }}
+            />
+          </Box>
+        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          hidden
+          onChange={handleFileChange}
+        />
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
         <TextField
           fullWidth
           placeholder="Type a message…"
@@ -385,7 +470,7 @@ export default function RoomChatView({ roomId }: RoomChatViewProps) {
         />
         <IconButton
           onClick={() => void handleSend()}
-          disabled={!input.trim() || sendMessage.isPending}
+          disabled={(!input.trim() && !selectedFile) || sendMessage.isPending || askRoomAI.isPending || uploadFile.isPending}
           sx={{
             bgcolor: "#6366f1",
             color: "#fff",
@@ -399,6 +484,33 @@ export default function RoomChatView({ roomId }: RoomChatViewProps) {
             <SendRoundedIcon sx={{ fontSize: 20 }} />
           )}
         </IconButton>
+        <IconButton
+          onClick={handlePickFile}
+          disabled={uploadFile.isPending}
+          sx={{
+            color: "text.secondary",
+            "&:hover": { color: "primary.main" },
+          }}
+        >
+          <AttachFileRoundedIcon sx={{ fontSize: 20 }} />
+        </IconButton>
+        <IconButton
+          onClick={() => void handleSend("ai")}
+          disabled={!input.trim() || sendMessage.isPending || askRoomAI.isPending || uploadFile.isPending}
+          sx={{
+            bgcolor: "#0f766e",
+            color: "#fff",
+            "&:hover": { bgcolor: "#0d5f59" },
+            "&.Mui-disabled": { bgcolor: "#e2e8f0", color: "#94a3b8" },
+          }}
+        >
+          {askRoomAI.isPending ? (
+            <CircularProgress size={18} sx={{ color: "#fff" }} />
+          ) : (
+            <SmartToyRoundedIcon sx={{ fontSize: 20 }} />
+          )}
+        </IconButton>
+        </Box>
       </Box>
     </Box>
   );

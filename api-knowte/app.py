@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 
 from config import settings
 from routes.v1.endpoints.authroutes import router as auth_router
@@ -27,6 +29,10 @@ def create_app() -> FastAPI:
     app.include_router(flashcard_router, prefix="/api/v1")
     app.include_router(quiz_router, prefix="/api/v1")
     app.include_router(room_router, prefix="/api/v1")
+
+    uploads_dir = Path(__file__).resolve().parent / "uploads"
+    uploads_dir.mkdir(exist_ok=True)
+    app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
 
     @app.get("/health", tags=["health"])
     def health() -> dict[str, str]:
