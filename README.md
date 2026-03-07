@@ -21,6 +21,22 @@ For detailed package docs:
 - Backend: `api-knowte/README.md`
 - Frontend: `knowte/README.md`
 
+## Latest changes (March 2026)
+
+- Added room features end-to-end:
+   - rooms UI, hooks, and Zod schemas on the frontend,
+   - room APIs and Supabase Postgres integration on the backend.
+- Added AI study tools in chat:
+   - flashcard generation endpoint/models/services,
+   - quiz generation support,
+   - tools menu integration in chat UI for flashcard/quiz actions.
+- Added `FlashcardPanel` UI for generating and viewing flashcards directly in the app.
+- Improved conversation handling:
+   - added `user_id` to conversation model,
+   - added conversation retrieval endpoints.
+- Implemented file upload + AI chat flow in room service and connected UI components.
+- Refactored authentication model/schemas and performed general codebase cleanup for readability/maintainability.
+
 ---
 
 ## Quick start (end-to-end)
