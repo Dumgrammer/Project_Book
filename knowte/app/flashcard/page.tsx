@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, Suspense, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -14,7 +14,7 @@ import AutoStoriesRoundedIcon from "@mui/icons-material/AutoStoriesRounded";
 import type { FlashcardItem } from "../models/flashcardmodel";
 import { useGenerateFlashcards } from "../hooks/flashcard";
 
-export default function FlashcardPage() {
+function FlashcardContent() {
   const params = useSearchParams();
   const documentId = params.get("documentId");
   const prompt = params.get("prompt");
@@ -140,5 +140,13 @@ export default function FlashcardPage() {
         )}
       </Box>
     </Box>
+  );
+}
+
+export default function FlashcardPage(){
+  return (
+    <Suspense>
+      <FlashcardContent/>
+    </Suspense>
   );
 }
