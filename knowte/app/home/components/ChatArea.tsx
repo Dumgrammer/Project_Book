@@ -9,7 +9,6 @@ import Chip from "@mui/material/Chip";
 import Avatar from "@mui/material/Avatar";
 import CircularProgress from "@mui/material/CircularProgress";
 import Button from "@mui/material/Button";
-import AttachFileRoundedIcon from "@mui/icons-material/AttachFileRounded";
 import SendRoundedIcon from "@mui/icons-material/SendRounded";
 import AutoAwesomeRoundedIcon from "@mui/icons-material/AutoAwesomeRounded";
 import QuizRoundedIcon from "@mui/icons-material/QuizRounded";
@@ -27,12 +26,13 @@ import MenuItem from "@mui/material/MenuItem";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import { useCurrentUser } from "../../hooks/auth";
-import { useAgentStream } from "../../hooks/agent";
+import { useAgentConversationMessages, useAgentStream } from "../../hooks/agent";
 import { useDocumentText, useDocumentUpload } from "../../hooks/document";
 import { api } from "../../lib/api";
 import { documentTextResponseSchema } from "../../schemas/documentschema";
 import FlashcardPanel from "./FlashcardPanel";
 import QuizPanel from "./QuizPanel";
+import { useSearchParams } from "next/navigation";
 
 interface Suggestion {
   label: string;
@@ -95,6 +95,8 @@ interface ChatMessage {
 
 export default function ChatArea() {
   const { data: user } = useCurrentUser();
+  const searchParams = useSearchParams();
+  const selectedConversationId = searchParams.get("c");
   const firstName = (user?.f_name ?? user?.email ?? "there").split(" ")[0];
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -114,11 +116,29 @@ export default function ChatArea() {
   const upload = useDocumentUpload();
   const { data: docText } = useDocumentText(documentId);
   const { send, stop, reset, streamedReply, conversationId, isStreaming } = useAgentStream();
+  const { data: conversationMessages } = useAgentConversationMessages(user?.id, selectedConversationId);
   const hasMessages = messages.length > 0;
 
   useEffect(() => {
     listEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isStreaming]);
+
+  useEffect(() => {
+    if (selectedConversationId && conversationMessages?.messages) {
+      const hydrated = conversationMessages.messages
+        .filter((m) => m.role === "user" || m.role === "assistant")
+        .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+      setMessages(hydrated);
+      setUiError(null);
+      return;
+    }
+
+    if (!selectedConversationId) {
+      reset();
+      setMessages([]);
+    }
+  }, [conversationMessages, reset, selectedConversationId]);
+    const activeConversationId = selectedConversationId ?? conversationId ?? undefined;
 
   const handleSend = async (seed?: string) => {
     const currentUserId = user?.id;
@@ -208,7 +228,7 @@ export default function ChatArea() {
       const finalReply = await send({
         user_id: currentUserId,
         message: text,
-        conversation_id: conversationId ?? undefined,
+        conversation_id: activeConversationId,
         history,
         system_prompt: systemPrompt,
       });

@@ -3,4 +3,7 @@ export type {
   ChatRequest,
   ChatResponse,
   StreamChunk,
+  ConversationHistoryItem,
+  ConversationHistoryResponse,
+  ConversationMessagesResponse,
 } from "../schemas/agentschema";

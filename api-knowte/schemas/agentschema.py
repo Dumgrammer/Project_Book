@@ -35,6 +35,7 @@ class ConversationHistoryItem(BaseModel):
     conversation_id: str
     created_at: str
     updated_at: str
+    first_content: str | None = None
 
 
 class ConversationHistoryResponse(BaseModel):

@@ -14,51 +14,21 @@ import MoreHorizRoundedIcon from "@mui/icons-material/MoreHorizRounded";
 import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 import { useCurrentUser, useLogout } from "../../hooks/auth";
+import { useAgentSidebarHistory } from "../../hooks/agent";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 const SERVERBAR_WIDTH = 72;
 const SIDEBAR_WIDTH = 240;
 
-interface ChatEntry {
-  id: string;
-  title: string;
-}
-
-interface HistoryGroup {
-  label: string;
-  chats: ChatEntry[];
-}
-
-const chatHistory: HistoryGroup[] = [
-  {
-    label: "Today",
-    chats: [
-      { id: "c1", title: "Summarize Chapter 5 Biology" },
-      { id: "c2", title: "Quiz: Cellular Respiration" },
-    ],
-  },
-  {
-    label: "Yesterday",
-    chats: [
-      { id: "c3", title: "Explain Newton's 3rd Law" },
-      { id: "c4", title: "Flashcards: Organic Chemistry" },
-      { id: "c5", title: "Essay outline: World War II" },
-    ],
-  },
-  {
-    label: "Previous 7 Days",
-    chats: [
-      { id: "c6", title: "Math 201 Problem Set Help" },
-      { id: "c7", title: "Summarize uploaded PDF" },
-      { id: "c8", title: "Quiz: Philippine History" },
-      { id: "c9", title: "Compare: Mitosis vs Meiosis" },
-    ],
-  },
-];
-
 export default function ChannelSidebar() {
-  const [activeChat, setActiveChat] = useState("c1");
+  const [activeChat, setActiveChat] = useState<string>("");
   const { data: user } = useCurrentUser();
   const logout = useLogout();
+  const { historyGroups, isLoading } = useAgentSidebarHistory(user?.id);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const selectedConversationId = searchParams.get("c");
 
   const displayName = user?.full_name ?? user?.email ?? "User";
   const initials = displayName.charAt(0).toUpperCase();
@@ -85,6 +55,10 @@ export default function ChannelSidebar() {
           fullWidth
           variant="outlined"
           startIcon={<EditNoteRoundedIcon />}
+          onClick={() => {
+            setActiveChat("");
+            router.replace(pathname, { scroll: false });
+          }}
           sx={{
             justifyContent: "flex-start",
             borderColor: "#e2e8f0",
@@ -111,7 +85,19 @@ export default function ChannelSidebar() {
           "&::-webkit-scrollbar-thumb": { bgcolor: "#cbd5e1", borderRadius: 2 },
         }}
       >
-        {chatHistory.map((group) => (
+        {isLoading && (
+          <Typography sx={{ px: 1.5, pt: 1.5, fontSize: 13, color: "text.secondary" }}>
+            Loading history...
+          </Typography>
+        )}
+
+        {!isLoading && historyGroups.length === 0 && (
+          <Typography sx={{ px: 1.5, pt: 1.5, fontSize: 13, color: "text.secondary" }}>
+            No conversations yet.
+          </Typography>
+        )}
+
+        {historyGroups.map((group) => (
           <Box key={group.label} sx={{ mb: 1 }}>
             <Typography
               sx={{
@@ -131,8 +117,11 @@ export default function ChannelSidebar() {
               {group.chats.map((chat) => (
                 <ListItemButton
                   key={chat.id}
-                  selected={activeChat === chat.id}
-                  onClick={() => setActiveChat(chat.id)}
+                  selected={(selectedConversationId ?? activeChat) === chat.id}
+                  onClick={() => {
+                    setActiveChat(chat.id);
+                    router.replace(`${pathname}?c=${encodeURIComponent(chat.id)}`, { scroll: false });
+                  }}
                   sx={{
                     mx: 0.5,
                     px: 1.5,
@@ -150,10 +139,16 @@ export default function ChannelSidebar() {
                 >
                   <ListItemText
                     primary={chat.title}
+                    secondary={new Date(chat.updatedAt).toLocaleString()}
                     primaryTypographyProps={{
                       fontSize: 13,
                       fontWeight: activeChat === chat.id ? 600 : 400,
                       color: activeChat === chat.id ? "text.primary" : "text.secondary",
+                      noWrap: true,
+                    }}
+                    secondaryTypographyProps={{
+                      fontSize: 11,
+                      color: "text.disabled",
                       noWrap: true,
                     }}
                   />

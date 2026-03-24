@@ -41,11 +41,13 @@ class AgentService:
         self._cleanup_expired_conversations()
         #Check if it has an existing convo
         conversation = self._get_or_create_conversation(request)
+        system_prompt = request.system_prompt or conversation.system_prompt or DEFAULT_SYSTEM_PROMPT
         # I-save yung message ng user sa conversation history
         self._append_user_message(conversation, request.message)
+        self._persist_conversation_state(conversation, system_prompt)
 
         # Buuin yung listahan ng messages na ipapadala sa Ollama (system + history + current)
-        messages = self._build_messages(conversation, request.system_prompt)
+        messages = self._build_messages(conversation, system_prompt)
 
         try:
             # Resend lahat ng message
@@ -68,6 +70,7 @@ class AgentService:
         # Save the AI reply to the conversation history for the next question
         conversation.messages.append(ChatMessage(role="assistant", content=reply))
         self._trim_messages(conversation)
+        self._persist_conversation_state(conversation, system_prompt)
 
         return ChatResponse(
             conversation_id=conversation.id,
@@ -79,9 +82,11 @@ class AgentService:
         self._cleanup_expired_conversations()
         # Real-time streaming for frontend
         conversation = self._get_or_create_conversation(request)
+        system_prompt = request.system_prompt or conversation.system_prompt or DEFAULT_SYSTEM_PROMPT
         self._append_user_message(conversation, request.message)
+        self._persist_conversation_state(conversation, system_prompt)
 
-        messages = self._build_messages(conversation, request.system_prompt)
+        messages = self._build_messages(conversation, system_prompt)
 
         # SSE (Server-Sent Events) — frontend receives data chunks as the AI generates
         return StreamingResponse(
@@ -110,13 +115,23 @@ class AgentService:
                     conv = Conversation(
                         id=request.conversation_id,
                         user_id=request.user_id,
+                        system_prompt=str(data.get("agent_data", {}).get("system_prompt") or DEFAULT_SYSTEM_PROMPT),
                         model=self._model,
                     )
-                    for msg in request.history:
-                        conv.messages.append(ChatMessage(role=msg.role, content=msg.content))
+                    stored_history = data.get("agent_data", {}).get("history", [])
+                    source_history = stored_history if isinstance(stored_history, list) and stored_history else request.history
+                    for msg in source_history:
+                        role = msg.get("role") if isinstance(msg, dict) else getattr(msg, "role", None)
+                        content = msg.get("content") if isinstance(msg, dict) else getattr(msg, "content", None)
+                        if role in {"user", "assistant", "system"} and isinstance(content, str):
+                            conv.messages.append(ChatMessage(role=role, content=content))
+                    if request.system_prompt:
+                        conv.system_prompt = request.system_prompt
                     self._trim_messages(conv)
                     self._conversations[conv.id] = conv
                     return conv
+            except HTTPException:
+                raise
             except Exception as exc:
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -126,25 +141,12 @@ class AgentService:
         # Create a new conversation
         conversation_id = str(uuid4())
         now = datetime.now(timezone.utc)
-
-        try:
-            row = {
-                "conversation_id": conversation_id,
-                "user_id": request.user_id,
-                "created_at": now,
-                "updated_at": now,
-                "agent_data": request.model_dump(),
-            }
-            client.collection(AGENTS_COLLECTION).document(conversation_id).set(row)
-        except Exception as exc:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Error creating conversation: {exc}",
-            ) from exc
+        system_prompt = request.system_prompt or DEFAULT_SYSTEM_PROMPT
 
         conv = Conversation(
             id=conversation_id,
             user_id=request.user_id,
+            system_prompt=system_prompt,
             model=self._model,
         )
         for msg in request.history:
@@ -153,26 +155,59 @@ class AgentService:
         self._trim_messages(conv)
         self._evict_if_needed()
         self._conversations[conv.id] = conv
+
+        try:
+            row = {
+                "conversation_id": conversation_id,
+                "user_id": request.user_id,
+                "created_at": now,
+                "updated_at": now,
+                "agent_data": {
+                    "conversation_id": conversation_id,
+                    "system_prompt": system_prompt,
+                    "history": [
+                        self._serialize_message(conversation_id, system_prompt, message)
+                        for message in conv.messages
+                    ],
+                },
+            }
+            client.collection(AGENTS_COLLECTION).document(conversation_id).set(row)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error creating conversation: {exc}",
+            ) from exc
+
         return conv
 
     def get_user_conversations(self, user_id: str) -> ConversationHistoryResponse:
         """Fetch all conversations belonging to a user from Firestore."""
         client = get_firestore_client()
         try:
-            docs = (
-                client.collection(AGENTS_COLLECTION)
-                .where("user_id", "==", user_id)
-                .order_by("updated_at", direction=firestore.Query.DESCENDING)
-                .stream()
-            )
-            items = []
+            # Avoid composite index requirement by sorting in Python.
+            docs = client.collection(AGENTS_COLLECTION).where("user_id", "==", user_id).stream()
+            items: list[ConversationHistoryItem] = []
             for doc in docs:
                 data = doc.to_dict()
+                agent_data = data.get("agent_data", {})
+                history = agent_data.get("history", []) if isinstance(agent_data, dict) else []
+                first_content = None
+                if isinstance(history, list):
+                    for msg in history:
+                        if (
+                            isinstance(msg, dict)
+                            and isinstance(msg.get("content"), str)
+                            and msg.get("content")
+                        ):
+                            first_content = msg["content"]
+                            break
                 items.append(ConversationHistoryItem(
                     conversation_id=data["conversation_id"],
                     created_at=str(data.get("created_at", "")),
                     updated_at=str(data.get("updated_at", "")),
+                    first_content=first_content,
                 ))
+            items.sort(key=lambda item: item.updated_at, reverse=True)
             return ConversationHistoryResponse(conversations=items)
         except Exception as exc:
             raise HTTPException(
@@ -197,14 +232,18 @@ class AgentService:
                     detail="This conversation does not belong to you.",
                 )
             agent_data = data.get("agent_data", {})
-            
+
             history = agent_data.get("history", [])
             # Also include messages from in-memory cache if available
             if conversation_id in self._conversations:
                 conv = self._conversations[conversation_id]
                 messages = [{"role": m.role, "content": m.content} for m in conv.messages]
             else:
-                messages = history
+                messages = [
+                    {"role": msg.get("role"), "content": msg.get("content")}
+                    for msg in history
+                    if isinstance(msg, dict) and isinstance(msg.get("role"), str) and isinstance(msg.get("content"), str)
+                ]
             return ConversationMessagesResponse(
                 conversation_id=conversation_id,
                 messages=messages,
@@ -225,7 +264,8 @@ class AgentService:
         self, conversation: Conversation, system_prompt: str | None
     ) -> list[dict[str, str]]:
         # Always starts with system prompt — the first instruction to the AI
-        prompt = DEFAULT_SYSTEM_PROMPT
+        prompt = system_prompt or conversation.system_prompt or DEFAULT_SYSTEM_PROMPT
+        conversation.system_prompt = prompt
         messages: list[dict[str, str]] = [{"role": "system", "content": prompt}]
         # Next all history messages (user and assistant previous messages)
         for msg in conversation.messages:
@@ -273,10 +313,46 @@ class AgentService:
         # After streaming is done, save the full reply to the conversation history
         conversation.messages.append(ChatMessage(role="assistant", content=full_reply))
         self._trim_messages(conversation)
+        self._persist_conversation_state(conversation, conversation.system_prompt or DEFAULT_SYSTEM_PROMPT)
 
     def _trim_messages(self, conversation: Conversation) -> None:
         if len(conversation.messages) > MAX_MESSAGES_PER_CONVERSATION:
             conversation.messages = conversation.messages[-MAX_MESSAGES_PER_CONVERSATION:]
+
+    def _serialize_message(self, conversation_id: str, system_prompt: str, message: ChatMessage) -> dict[str, str]:
+        return {
+            "conversation_id": conversation_id,
+            "system_prompt": system_prompt,
+            "role": message.role,
+            "content": message.content,
+            "created_at": message.created_at.isoformat(),
+        }
+
+    def _persist_conversation_state(self, conversation: Conversation, system_prompt: str) -> None:
+        client = get_firestore_client()
+        conversation.system_prompt = system_prompt
+        try:
+            client.collection(AGENTS_COLLECTION).document(conversation.id).set(
+                {
+                    "conversation_id": conversation.id,
+                    "user_id": conversation.user_id,
+                    "updated_at": datetime.now(timezone.utc),
+                    "agent_data": {
+                        "conversation_id": conversation.id,
+                        "system_prompt": conversation.system_prompt,
+                        "history": [
+                            self._serialize_message(conversation.id, conversation.system_prompt, message)
+                            for message in conversation.messages
+                        ],
+                    },
+                },
+                merge=True,
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error persisting conversation: {exc}",
+            ) from exc
 
     def _evict_if_needed(self) -> None:
         while len(self._conversations) >= MAX_CONVERSATIONS:

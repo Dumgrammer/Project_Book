@@ -25,7 +25,26 @@ export const streamChunkSchema = z.object({
   done: z.boolean(),
 });
 
+export const conversationHistoryItemSchema = z.object({
+  conversation_id: z.string(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  first_content: z.string().nullable().optional(),
+});
+
+export const conversationHistoryResponseSchema = z.object({
+  conversations: z.array(conversationHistoryItemSchema),
+});
+
+export const conversationMessagesResponseSchema = z.object({
+  conversation_id: z.string(),
+  messages: z.array(messageItemSchema),
+});
+
 export type MessageItem = z.infer<typeof messageItemSchema>;
 export type ChatRequest = z.infer<typeof chatRequestSchema>;
 export type ChatResponse = z.infer<typeof chatResponseSchema>;
 export type StreamChunk = z.infer<typeof streamChunkSchema>;
+export type ConversationHistoryItem = z.infer<typeof conversationHistoryItemSchema>;
+export type ConversationHistoryResponse = z.infer<typeof conversationHistoryResponseSchema>;
+export type ConversationMessagesResponse = z.infer<typeof conversationMessagesResponseSchema>;

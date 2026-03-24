@@ -16,11 +16,13 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { styled } from "@mui/material/styles";
 import { AxiosError } from "axios";
+import { FirebaseError } from "firebase/app";
 
 import ForgotPassword from "./ForgotPassword";
 import { GoogleIcon } from "./CustomIcons";
-import { useLogin } from "../../hooks/auth";
+import { useLogin, useOAuthFirebase } from "../../hooks/auth";
 import { loginSchema } from "../../schemas/authschema";
+import { signInWithGooglePopup } from "../../lib/firebase";
 
 const Card = styled(MuiCard)(({ theme }) => ({
   display: "flex",
@@ -44,7 +46,9 @@ export default function SignInCard() {
   const [emailError, setEmailError] = React.useState("");
   const [passwordError, setPasswordError] = React.useState("");
   const [forgotOpen, setForgotOpen] = React.useState(false);
+  const [oauthError, setOauthError] = React.useState("");
   const login = useLogin();
+  const oauthLogin = useOAuthFirebase();
 
   const validate = (email: string, password: string): boolean => {
     const result = loginSchema.safeParse({ email, password });
@@ -62,6 +66,7 @@ export default function SignInCard() {
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setOauthError("");
     const form = new FormData(event.currentTarget);
     const email = (form.get("email") as string) ?? "";
     const password = (form.get("password") as string) ?? "";
@@ -69,6 +74,32 @@ export default function SignInCard() {
     if (!validate(email, password)) return;
 
     login.mutate({ email, password });
+  };
+
+  const handleGoogleSignIn = async () => {
+    if (oauthLogin.isPending) return;
+    setOauthError("");
+    try {
+      const idToken = await signInWithGooglePopup();
+      await oauthLogin.mutateAsync({ id_token: idToken });
+    } catch (error) {
+      if (error instanceof FirebaseError) {
+        if (error.code === "auth/popup-closed-by-user") {
+          setOauthError("Google sign-in cancelled.");
+          return;
+        }
+        setOauthError(error.message);
+        return;
+      }
+      if (error instanceof AxiosError) {
+        const detail = error.response?.data?.detail;
+        if (typeof detail === "string") {
+          setOauthError(detail);
+          return;
+        }
+      }
+      setOauthError("Google sign-in failed. Please try again.");
+    }
   };
 
   const serverError = React.useMemo(() => {
@@ -91,7 +122,7 @@ export default function SignInCard() {
         Sign in
       </Typography>
 
-      {serverError && <Alert severity="error">{serverError}</Alert>}
+      {(serverError || oauthError) && <Alert severity="error">{oauthError || serverError}</Alert>}
 
       <Box
         component="form"
@@ -167,10 +198,11 @@ export default function SignInCard() {
         <Button
           fullWidth
           variant="outlined"
-          onClick={() => alert("Sign in with Google")}
+          onClick={handleGoogleSignIn}
+          disabled={oauthLogin.isPending}
           startIcon={<GoogleIcon />}
         >
-          Sign in with Google
+          {oauthLogin.isPending ? "Signing in with Google..." : "Sign in with Google"}
         </Button>
       </Box>
     </Card>
