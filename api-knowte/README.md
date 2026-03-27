@@ -85,6 +85,7 @@ Single-response chat endpoint using Ollama `phi3`.
 
 ```json
 {
+  "user_id": "firebase_uid_here",
   "message": "Explain photosynthesis simply.",
   "conversation_id": "optional-conversation-id",
   "history": [
@@ -105,11 +106,19 @@ Single-response chat endpoint using Ollama `phi3`.
 }
 ```
 
+**Validation**
+
+- `user_id`: required non-empty string
+- `message`: required, 1-4096 chars
+- `history`: optional list of `{ role, content }`
+
 ---
 
 ### `POST /api/v1/agent/chat/stream`
 
 Streaming chat endpoint (SSE / `text/event-stream`).
+
+Uses the same request payload as `POST /api/v1/agent/chat` (`user_id` is required).
 
 Each event is emitted as:
 
@@ -122,6 +131,49 @@ Each event is emitted as:
 ```
 
 Final chunk has `done: true`.
+
+---
+
+### `GET /api/v1/agent/conversations/{user_id}`
+
+Returns grouped conversation metadata for one user.
+
+**Response 200**
+
+```json
+{
+  "conversations": [
+    {
+      "conversation_id": "uuid",
+      "created_at": "2026-03-27T09:50:00Z",
+      "updated_at": "2026-03-27T10:15:00Z",
+      "first_content": "Summarize this chapter"
+    }
+  ]
+}
+```
+
+### `GET /api/v1/agent/conversations/{user_id}/{conversation_id}`
+
+Returns all messages for a specific conversation owned by `user_id`.
+
+**Response 200**
+
+```json
+{
+  "conversation_id": "uuid",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Summarize this chapter"
+    },
+    {
+      "role": "assistant",
+      "content": "Here is a concise summary..."
+    }
+  ]
+}
+```
 
 ---
 
@@ -510,6 +562,17 @@ If authorize popup shows token URL `/auth/token`, restart uvicorn and hard-refre
 - `AuthResponse`
   - `user: UserResponse`
   - `token: TokenResponse`
+- `ChatRequest`
+  - `user_id: str` (required)
+  - `message: str` (1..4096)
+  - `conversation_id: str | null`
+  - `history: list[MessageItem]`
+  - `system_prompt: str | null`
+- `ConversationHistoryResponse`
+  - `conversations: list[ConversationHistoryItem]`
+- `ConversationMessagesResponse`
+  - `conversation_id: str`
+  - `messages: list[MessageItem]`
 - `GenerateFlashcardsRequest`
   - `document_id: str`
   - `prompt: str`

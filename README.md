@@ -83,9 +83,12 @@ Open:
 
 ### Chat flow (phi3)
 
-1. Frontend sends `POST /api/v1/agent/chat` or `/chat/stream`.
+1. Frontend sends `POST /api/v1/agent/chat` or `/chat/stream` with required `user_id`.
 2. Backend `AgentService` builds message history + system prompt.
 3. Backend calls Ollama (`phi3`) and returns response (full or stream).
+4. Frontend can fetch conversation history via:
+   - `GET /api/v1/agent/conversations/{user_id}`
+   - `GET /api/v1/agent/conversations/{user_id}/{conversation_id}`
 
 ### Document QA flow (Donut)
 
